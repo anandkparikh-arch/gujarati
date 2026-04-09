@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ગુજરાતી શીખો</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f3ee; color: #1a1a1a; min-height: 100vh; overflow-x: hidden; }
+.app { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── CONFETTI CANVAS ── */
+#confettiCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9998; }
+
+/* ── CELEBRATION OVERLAY ── */
+.celeb-overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9997; pointer-events: none; }
+.celeb-emoji { font-size: 80px; animation: celebPop 0.5s cubic-bezier(0.17,0.89,0.32,1.49) forwards; opacity: 0; }
+.celeb-text { font-size: 28px; font-weight: 800; color: white; text-shadow: 0 2px 12px rgba(0,0,0,0.4); margin-top: 12px; animation: celebSlide 0.5s 0.15s ease forwards; opacity: 0; }
+@keyframes celebPop { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+@keyframes celebSlide { 0%{transform:translateY(20px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+
+/* ── TOAST ── */
+.toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); background: #1D9E75; color: white; padding: 8px 22px; border-radius: 99px; font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 9999; box-shadow: 0 4px 18px rgba(29,158,117,0.4); white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+/* ── LOGIN ── */
+.login-header { text-align: center; padding: 1.25rem 0 0.75rem; }
+.login-title { font-size: 26px; font-weight: 800; }
+.login-sub { font-size: 13px; color: #888; margin-top: 3px; }
+
+/* WORD OF THE DAY */
+.wotd-card { background: white; border: 1.5px solid #e8e8e8; border-radius: 16px; padding: 14px 16px; margin-bottom: 1rem; display: flex; align-items: center; gap: 14px; }
+.wotd-icon { font-size: 28px; flex-shrink: 0; }
+.wotd-body { flex: 1; }
+.wotd-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #aaa; margin-bottom: 3px; }
+.wotd-guj { font-size: 26px; font-weight: 700; line-height: 1; }
+.wotd-roman { font-size: 13px; color: #888; font-style: italic; }
+.wotd-english { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
+.wotd-hear { background: #E1F5EE; border: 1.5px solid #5DCAA5; border-radius: 10px; padding: 8px 14px; font-size: 13px; color: #0F6E56; cursor: pointer; font-weight: 600; font-family: inherit; white-space: nowrap; }
+.wotd-hear:disabled { opacity: 0.5; cursor: wait; }
+
+/* FAMILY CHALLENGE */
+.challenge-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 14px 16px; margin-bottom: 1rem; color: white; }
+.challenge-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.8; margin-bottom: 4px; }
+.challenge-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.challenge-progress { display: flex; gap: 8px; align-items: center; }
+.challenge-bar-wrap { flex: 1; background: rgba(255,255,255,0.25); border-radius: 99px; height: 8px; overflow: hidden; }
+.challenge-bar { height: 100%; border-radius: 99px; background: white; transition: width 0.6s ease; }
+.challenge-pct { font-size: 12px; font-weight: 700; opacity: 0.9; }
+.challenge-profiles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.challenge-pip { font-size: 11px; background: rgba(255,255,255,0.2); border-radius: 99px; padding: 3px 8px; }
+.challenge-pip.done { background: rgba(255,255,255,0.5); font-weight: 700; }
+
+/* LEADERBOARDS */
+.lb-section { margin-bottom: 1rem; }
+.section-label { font-size: 11px; font-weight: 700; color: #bbb; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.lb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lb-card { background: white; border: 1px solid #e8e8e8; border-radius: 14px; padding: 12px; }
+.lb-title { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.lb-row { display: flex; align-items: center; gap: 7px; padding: 4px 0; border-bottom: 0.5px solid #f5f5f5; }
+.lb-row:last-child { border-bottom: none; }
+.lb-rank { font-size: 14px; width: 22px; text-align: center; }
+.lb-emoji { font-size: 20px; width: 26px; text-align: center; }
+.lb-info { flex: 1; min-width: 0; }
+.lb-pname { font-size: 12px; font-weight: 600; }
+.lb-val { font-size: 11px; color: #aaa; margin-top: 1px; }
+.lb-val.hi { color: #1D9E75; font-weight: 700; }
+
+/* PROFILES */
+.profile-section-label { font-size: 11px; font-weight: 700; color: #bbb; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.profile-card { background: white; border: 2px solid #e8e8e8; border-radius: 16px; padding: 16px 12px 12px; text-align: center; cursor: pointer; transition: all 0.18s; position: relative; }
+.profile-card:hover { border-color: #1D9E75; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(29,158,117,0.15); }
+.profile-avatar { font-size: 42px; margin-bottom: 6px; line-height: 1; }
+.profile-name { font-size: 15px; font-weight: 700; }
+.profile-xp { font-size: 12px; color: #888; margin-top: 2px; }
+.profile-streak { font-size: 12px; margin-top: 2px; }
+.streak-risk { position: absolute; top: 8px; right: 8px; font-size: 10px; background: #FFF5F0; color: #D85A30; border: 1px solid #F09595; border-radius: 6px; padding: 2px 6px; font-weight: 700; }
+.review-badge { position: absolute; top: 8px; left: 8px; font-size: 10px; background: #E6F1FB; color: #0C447C; border: 1px solid #85B7EB; border-radius: 6px; padding: 2px 6px; font-weight: 700; }
+
+/* PIN */
+.pin-wrap { text-align: center; padding: 2rem 0; }
+.pin-avatar-emoji { font-size: 64px; margin-bottom: 12px; line-height: 1; }
+.pin-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.pin-step { font-size: 13px; color: #1D9E75; font-weight: 600; margin-bottom: 4px; }
+.pin-label { font-size: 14px; color: #888; margin-bottom: 1.5rem; }
+.pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 1.5rem; }
+.pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ccc; background: white; transition: all 0.15s; }
+.pin-dot.filled { background: #1D9E75; border-color: #1D9E75; }
+.pin-dot.wrong { background: #E24B4A; border-color: #E24B4A; animation: shake 0.35s; }
+.pin-error { color: #E24B4A; font-size: 13px; min-height: 18px; margin-bottom: 0.75rem; }
+.pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 240px; margin: 0 auto 1rem; }
+.pin-key { padding: 16px; background: white; border: 1.5px solid #e0e0e0; border-radius: 12px; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.12s; font-family: inherit; }
+.pin-key:hover { background: #f0fbf7; border-color: #1D9E75; }
+.pin-key:active { transform: scale(0.93); }
+.pin-key.del { font-size: 16px; color: #888; }
+.back-link { background: none; border: none; color: #aaa; font-size: 14px; cursor: pointer; font-family: inherit; display: block; margin: 0.5rem auto 0; }
+
+/* HOME */
+.home-header { display: flex; align-items: center; gap: 12px; padding: 0.75rem 0 0.5rem; }
+.home-avatar-emoji { font-size: 36px; line-height: 1; flex-shrink: 0; }
+.home-greeting { flex: 1; }
+.home-name { font-size: 18px; font-weight: 700; }
+.home-tagline { font-size: 12px; color: #888; margin-top: 1px; }
+.logout-btn { background: none; border: 1px solid #e0e0e0; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #888; cursor: pointer; font-family: inherit; }
+.stats-row { display: flex; gap: 8px; margin: 0.25rem 0 0.75rem; }
+.stat-card { flex: 1; background: white; border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid #e8e8e8; }
+.stat-num { font-size: 20px; font-weight: 700; }
+.stat-label { font-size: 10px; color: #888; margin-top: 1px; }
+
+/* REVIEW QUEUE */
+.review-card { background: #E6F1FB; border: 1.5px solid #85B7EB; border-radius: 14px; padding: 13px 14px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
+.review-card:hover { background: #B5D4F4; }
+.review-icon { font-size: 22px; }
+.review-info { flex: 1; }
+.review-title { font-size: 14px; font-weight: 700; color: #0C447C; }
+.review-sub { font-size: 12px; color: #185FA5; margin-top: 2px; }
+.review-arrow { font-size: 18px; color: #185FA5; }
+
+.home-lessons { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
+.lesson-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border: 1.5px solid #e8e8e8; border-radius: 14px; cursor: pointer; transition: all 0.15s; }
+.lesson-row:hover:not(.locked) { border-color: #1D9E75; background: #f0fbf7; box-shadow: 0 3px 12px rgba(29,158,117,0.1); }
+.lesson-row.locked { opacity: 0.4; cursor: not-allowed; }
+.l-icon { font-size: 22px; width: 34px; text-align: center; }
+.l-info { flex: 1; }
+.l-name { font-size: 14px; font-weight: 600; }
+.l-desc { font-size: 11px; color: #888; margin-top: 1px; }
+.l-badge { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: #f0f0f0; color: #888; white-space: nowrap; font-weight: 600; }
+.l-badge.done { background: #E1F5EE; color: #085041; }
+.l-due { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: #E6F1FB; color: #0C447C; font-weight: 700; margin-left: 4px; }
+.tip-box { background: #fffbf0; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 13px; font-size: 13px; color: #7c6200; line-height: 1.6; }
+
+/* LESSON */
+.back-btn { display: inline-flex; align-items: center; gap: 5px; background: none; border: none; color: #888; font-size: 13px; cursor: pointer; padding: 0 0 0.75rem 0; font-family: inherit; }
+.progress-bar { background: #e0e0e0; border-radius: 99px; height: 7px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 99px; background: #1D9E75; transition: width 0.4s ease; }
+.prog-label { font-size: 11px; color: #aaa; text-align: right; margin-top: 3px; margin-bottom: 0.75rem; }
+.lesson-card { background: white; border: 1.5px solid #e8e8e8; border-radius: 16px; padding: 1.5rem; margin-bottom: 0.75rem; }
+.q-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #ccc; margin-bottom: 0.75rem; }
+.guj-big { font-size: 52px; text-align: center; padding: 0.5rem 0 0.25rem; line-height: 1.2; }
+.roman { font-size: 16px; text-align: center; color: #999; margin-bottom: 2px; font-style: italic; }
+.english { font-size: 19px; font-weight: 700; text-align: center; margin-bottom: 1rem; }
+.listen-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: #E1F5EE; border: 1.5px solid #5DCAA5; border-radius: 12px; font-size: 15px; color: #0F6E56; cursor: pointer; font-weight: 600; transition: all 0.15s; font-family: inherit; }
+.listen-btn:hover:not(:disabled) { background: #9FE1CB; }
+.listen-btn:disabled { opacity: 0.55; cursor: wait; }
+.mic-section { margin-top: 10px; }
+.mic-required-note { font-size: 12px; color: #aaa; text-align: center; margin-top: 8px; font-style: italic; }
+.mic-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: white; border: 1.5px solid #ccc; border-radius: 12px; font-size: 15px; color: #555; cursor: pointer; transition: all 0.15s; font-family: inherit; font-weight: 500; }
+.mic-btn:hover:not(:disabled) { background: #f5f5f5; border-color: #999; }
+.mic-btn.recording { background: #FFF5F0; border-color: #D85A30; color: #7a2800; animation: pulse 1.2s infinite; }
+.mic-btn.success { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+.mic-btn.fail { background: #FFF0F0; border-color: #E24B4A; color: #7a0000; }
+.mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pronun-result { margin-top: 10px; padding: 12px 14px; border-radius: 10px; font-size: 14px; display: none; line-height: 1.6; }
+.pronun-result.show { display: block; }
+.pronun-result.great   { background: #E1F5EE; border: 1px solid #5DCAA5; color: #085041; }
+.pronun-result.ok      { background: #EAF3DE; border: 1px solid #97C459; color: #173404; }
+.pronun-result.retry   { background: #FAEEDA; border: 1px solid #EF9F27; color: #633806; }
+.pronun-result.nothing { background: #FFF0F0; border: 1px solid #F09595; color: #501313; }
+.pronun-heard { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0.75rem; }
+.choice-btn { padding: 14px 8px; background: #f8f8f8; border: 1.5px solid #e0e0e0; border-radius: 12px; font-size: 14px; cursor: pointer; text-align: center; transition: all 0.15s; color: #1a1a1a; font-family: inherit; font-weight: 500; }
+.choice-btn:hover:not(:disabled) { border-color: #1D9E75; background: #f0fbf7; }
+.choice-btn.correct { background: #E1F5EE; border-color: #1D9E75; color: #085041; font-weight: 700; }
+.choice-btn.wrong { background: #FFF0F0; border-color: #E24B4A; color: #7a1a1a; }
+.choice-btn:disabled { cursor: default; }
+.pick-feedback { margin-top: 10px; padding: 10px 13px; border-radius: 10px; font-size: 14px; display: none; font-weight: 500; }
+.pick-feedback.show { display: block; }
+.pick-feedback.good { background: #E1F5EE; color: #085041; }
+.pick-feedback.bad  { background: #FAEEDA; color: #633806; }
+.next-btn { width: 100%; padding: 14px; background: #1D9E75; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 0.75rem; display: none; transition: background 0.15s; font-family: inherit; }
+.next-btn:hover { background: #0F6E56; }
+.next-btn.show { display: block; }
+
+/* COMPLETE */
+.complete-wrap { text-align: center; padding: 2rem 1rem 1rem; }
+.complete-icon { font-size: 64px; margin-bottom: 0.5rem; animation: celebPop 0.5s cubic-bezier(0.17,0.89,0.32,1.49) forwards; }
+.complete-title { font-size: 24px; font-weight: 800; margin-bottom: 5px; }
+.complete-sub { font-size: 14px; color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+.complete-stats { display: flex; justify-content: center; gap: 2.5rem; margin-bottom: 1.5rem; }
+.cs-num { font-size: 32px; font-weight: 800; color: #1D9E75; }
+.cs-label { font-size: 12px; color: #888; margin-top: 2px; }
+.sr-next { background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; color: #666; text-align: center; }
+.sr-next strong { color: #1a1a1a; }
+
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+</style>
+</head>
+<body>
+<canvas id="confettiCanvas"></canvas>
+<div class="toast" id="toast"></div>
+<div class="app">
+
+<!-- LOGIN -->
+<div class="screen active" id="loginScreen">
+  <div class="login-header">
+    <div class="login-title">ગુજરાતી શીખો</div>
+    <div class="login-sub">Learn Gujarati · 5 minutes a day</div>
+  </div>
+  <div id="wotdSection"></div>
+  <div id="challengeSection"></div>
+  <div class="lb-section">
+    <div class="section-label">Family leaderboard</div>
+    <div class="lb-grid" id="loginLbGrid"></div>
+  </div>
+  <div class="profile-section-label">Who's learning today?</div>
+  <div class="profile-grid" id="profileGrid"></div>
+</div>
+
+<!-- PIN -->
+<div class="screen" id="pinScreen">
+  <div class="pin-wrap" id="pinWrap"></div>
+</div>
+
+<!-- HOME -->
+<div class="screen" id="homeScreen">
+  <div class="home-header">
+    <div class="home-avatar-emoji" id="homeAvatarEmoji"></div>
+    <div class="home-greeting">
+      <div class="home-name" id="homeName"></div>
+      <div class="home-tagline">ગુજરાતી શીખો · 5 min a day</div>
+    </div>
+    <button class="logout-btn" onclick="logout()">← Switch</button>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="statStreak">0</div><div class="stat-label">🔥 Streak</div></div>
+    <div class="stat-card"><div class="stat-num" id="statXP">0</div><div class="stat-label">⭐ XP</div></div>
+    <div class="stat-card"><div class="stat-num" id="statWords">0</div><div class="stat-label">💬 Words</div></div>
+  </div>
+  <div id="reviewSection"></div>
+  <div class="section-label">Lessons</div>
+  <div class="home-lessons" id="lessonList"></div>
+  <div class="tip-box">💡 Listen carefully before speaking. Your review queue brings back words at just the right time!</div>
+</div>
+
+<!-- LESSON -->
+<div class="screen" id="lessonScreen">
+  <button class="back-btn" onclick="goHome()">← Home</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="prog-label" id="progLabel">0 / 0</div>
+  <div class="lesson-card" id="qCard"></div>
+  <button class="next-btn" id="nextBtn" onclick="nextQ()">Continue →</button>
+</div>
+
+<!-- COMPLETE -->
+<div class="screen" id="completeScreen">
+  <div class="complete-wrap">
+    <div class="complete-icon" id="cIcon">🎉</div>
+    <div class="complete-title" id="cTitle"></div>
+    <div class="complete-sub" id="cSub"></div>
+    <div class="complete-stats">
+      <div><div class="cs-num" id="cXP">0</div><div class="cs-label">XP earned</div></div>
+      <div><div class="cs-num" id="cCorrect">0</div><div class="cs-label">Correct</div></div>
+    </div>
+    <div class="sr-next" id="srNext"></div>
+    <button class="next-btn show" onclick="goHome()" style="max-width:220px;margin:0 auto;">Back to home</button>
+  </div>
+</div>
+
+</div>
+<script>
+const API_KEY = 'AIzaSyCRkcUmaD_ViELXitTFCtQlOf2HKPtaGK4';
+
+/* ══════════════════════════════════════════
+   PROFILES
+══════════════════════════════════════════ */
+function profileAvatar(p, size) {
+  const fs = Math.round((size||44)*0.65);
+  return `<span style="font-size:${fs}px;line-height:1;display:inline-block">${p.emoji}</span>`;
+}
+
+const PROFILES = [
+  { id:'anand',  name:'Anand',  emoji:'🧔🏾', color:'#1D9E75' },
+  { id:'lauren', name:'Lauren', emoji:'👩',    color:'#7F77DD' },
+  { id:'mira',   name:'Mira',   emoji:'👧🏽',  color:'#D4537E' },
+  { id:'hugo',   name:'Hugo',   emoji:'👦🏽',  color:'#378ADD' },
+];
+
+/* ══════════════════════════════════════════
+   LESSONS  —  add new ones here
+══════════════════════════════════════════ */
+const LESSONS = [
+  { id:'greetings', name:'Greetings', desc:'Hello, goodbye, thank you', icon:'👋', words:[
+    { g:'નમસ્તે',   r:'Namaste',   e:'Hello',             tts:'નમસ્તે',   roman:'namaste' },
+    { g:'આવજો',    r:'Aavjo',     e:'Goodbye',           tts:'આવજો',    roman:'aavjo' },
+    { g:'આભાર',    r:'Aabhar',    e:'Thank you',         tts:'આભાર',    roman:'aabhar' },
+    { g:'હા',      r:'Haa',       e:'Yes',               tts:'હા',      roman:'haa' },
+    { g:'ના',      r:'Naa',       e:'No',                tts:'ના',      roman:'naa' },
+    { g:'માફ કરો', r:'Maaf karo', e:'Sorry / Excuse me', tts:'માફ કરો', roman:'maaf karo' },
+  ]},
+  { id:'family', name:'Family', desc:'Mom, dad, siblings, grandparents', icon:'👨‍👩‍👧‍👦', words:[
+    { g:'મા',   r:'Maa',    e:'Mom',                    tts:'મા',   roman:'maa' },
+    { g:'બાપા', r:'Baapaa', e:'Dad',                    tts:'બાપા', roman:'baapaa' },
+    { g:'ભાઈ',  r:'Bhai',   e:'Brother',                tts:'ભાઈ',  roman:'bhai' },
+    { g:'બહેન', r:'Bahen',  e:'Sister',                 tts:'બહેન', roman:'bahen' },
+    { g:'દાદા', r:'Daadaa', e:'Grandfather (paternal)', tts:'દાદા', roman:'daadaa' },
+    { g:'દાદી', r:'Daadee', e:'Grandmother (paternal)', tts:'દાદી', roman:'daadee' },
+    { g:'નાના', r:'Naanaa', e:'Grandfather (maternal)', tts:'નાના', roman:'naanaa' },
+    { g:'નાની', r:'Naanee', e:'Grandmother (maternal)', tts:'નાની', roman:'naanee' },
+  ]},
+  { id:'numbers', name:'Numbers 1–10', desc:'Count to ten in Gujarati', icon:'🔢', words:[
+    { g:'એક',   r:'Ek',     e:'One',   tts:'એક',   roman:'ek' },
+    { g:'બે',   r:'Be',     e:'Two',   tts:'બે',   roman:'be' },
+    { g:'ત્રણ', r:'Tran',   e:'Three', tts:'ત્રણ', roman:'tran' },
+    { g:'ચાર',  r:'Chaar',  e:'Four',  tts:'ચાર',  roman:'chaar' },
+    { g:'પાંચ', r:'Paanch', e:'Five',  tts:'પાંચ', roman:'paanch' },
+    { g:'છ',    r:'Chha',   e:'Six',   tts:'છ',    roman:'chha' },
+    { g:'સાત',  r:'Saat',   e:'Seven', tts:'સાત',  roman:'saat' },
+    { g:'આઠ',   r:'Aath',   e:'Eight', tts:'આઠ',   roman:'aath' },
+    { g:'નવ',   r:'Nav',    e:'Nine',  tts:'નવ',   roman:'nav' },
+    { g:'દસ',   r:'Das',    e:'Ten',   tts:'દસ',   roman:'das' },
+  ]},
+  { id:'colors', name:'Colors', desc:'Red, blue, green and more', icon:'🎨', words:[
+    { g:'લાલ',    r:'Laal',     e:'Red',    tts:'લાલ',    roman:'laal' },
+    { g:'વાદળી',  r:'Vaadlee',  e:'Blue',   tts:'વાદળી',  roman:'vaadlee' },
+    { g:'લીલો',   r:'Leelo',    e:'Green',  tts:'લીલો',   roman:'leelo' },
+    { g:'પીળો',   r:'Peelo',    e:'Yellow', tts:'પીળો',   roman:'peelo' },
+    { g:'સફેદ',   r:'Safed',    e:'White',  tts:'સફેદ',   roman:'safed' },
+    { g:'કાળો',   r:'Kaalo',    e:'Black',  tts:'કાળો',   roman:'kaalo' },
+    { g:'નારંગી', r:'Naarangee',e:'Orange', tts:'નારંગી', roman:'naarangee' },
+    { g:'ગુલાબી', r:'Gulaabee', e:'Pink',   tts:'ગુલાબી', roman:'gulaabee' },
+  ]},
+  { id:'food', name:'Food & Drink', desc:'Water, tea, rice, roti, milk', icon:'🍛', words:[
+    { g:'પાણી', r:'Paanee', e:'Water',        tts:'પાણી', roman:'paanee' },
+    { g:'ભોજન', r:'Bhojan', e:'Food / Meal',  tts:'ભોજન', roman:'bhojan' },
+    { g:'ચા',   r:'Chaa',   e:'Tea',          tts:'ચા',   roman:'chaa' },
+    { g:'ભાત',  r:'Bhaat',  e:'Rice',         tts:'ભાત',  roman:'bhaat' },
+    { g:'રોટી', r:'Rotee',  e:'Roti / Bread', tts:'રોટી', roman:'rotee' },
+    { g:'દૂધ',  r:'Doodh',  e:'Milk',         tts:'દૂધ',  roman:'doodh' },
+    { g:'શાક',  r:'Shaak',  e:'Vegetables',   tts:'શાક',  roman:'shaak' },
+    { g:'દાળ',  r:'Daal',   e:'Lentils',      tts:'દાળ',  roman:'daal' },
+  ]},
+  { id:'animals', name:'Animals', desc:'Dog, cat, cow, elephant and more', icon:'🐘', words:[
+    { g:'કૂતરો',  r:'Kootaro',  e:'Dog',      tts:'કૂતરો',  roman:'kootaro' },
+    { g:'બિલાડી', r:'Bilaadee', e:'Cat',      tts:'બિલાડી', roman:'bilaadee' },
+    { g:'ગાય',    r:'Gaay',     e:'Cow',      tts:'ગાય',    roman:'gaay' },
+    { g:'હાથી',   r:'Haathee',  e:'Elephant', tts:'હાથી',   roman:'haathee' },
+    { g:'સિંહ',   r:'Sinh',     e:'Lion',     tts:'સિંહ',   roman:'sinh' },
+    { g:'વાંદરો', r:'Vaandaro', e:'Monkey',   tts:'વાંદરો', roman:'vaandaro' },
+    { g:'માછલી',  r:'Maachlee', e:'Fish',     tts:'માછલી',  roman:'maachlee' },
+    { g:'પક્ષી',  r:'Pakshee',  e:'Bird',     tts:'પક્ષી',  roman:'pakshee' },
+  ]},
+  { id:'body', name:'Body Parts', desc:'Head, eyes, hands, feet', icon:'🙌', words:[
+    { g:'માથું',  r:'Maathoon', e:'Head',    tts:'માથું',  roman:'maathoon' },
+    { g:'આંખ',   r:'Aankh',    e:'Eye',     tts:'આંખ',   roman:'aankh' },
+    { g:'નાક',   r:'Naak',     e:'Nose',    tts:'નાક',   roman:'naak' },
+    { g:'કાન',   r:'Kaan',     e:'Ear',     tts:'કાન',   roman:'kaan' },
+    { g:'મોઢું',  r:'Modhoon',  e:'Mouth',   tts:'મોઢું',  roman:'modhoon' },
+    { g:'હાથ',   r:'Haath',    e:'Hand',    tts:'હાથ',   roman:'haath' },
+    { g:'પગ',    r:'Pag',      e:'Foot/Leg',tts:'પગ',    roman:'pag' },
+    { g:'પેટ',   r:'Pet',      e:'Stomach', tts:'પેટ',   roman:'pet' },
+  ]},
+  { id:'phrases', name:'Daily Phrases', desc:'Useful everyday sentences', icon:'💬', words:[
+    { g:'તમે કેમ છો?',  r:'Tame kem chho?',     e:'How are you?',      tts:'તમે કેમ છો?',  roman:'tame kem chho' },
+    { g:'હું સારો છું', r:'Hoon saaro chhoon',  e:"I'm fine (male)",   tts:'હું સારો છું', roman:'hoon saaro chhoon' },
+    { g:'હું સારી છું', r:'Hoon saaree chhoon', e:"I'm fine (female)", tts:'હું સારી છું', roman:'hoon saaree chhoon' },
+    { g:'મને ગમે છે',   r:'Mane game chhe',     e:'I like it',         tts:'મને ગમે છે',   roman:'mane game chhe' },
+    { g:'સારું',        r:'Saaroon',            e:'Good / Okay',       tts:'સારું',        roman:'saaroon' },
+    { g:'ભૂખ લાગી છે', r:'Bhookh laagee chhe', e:"I'm hungry",        tts:'ભૂખ લાગી છે', roman:'bhookh laagee chhe' },
+  ]},
+];
+
+/* ALL_WORDS flat list for SR and WOTD */
+const ALL_WORDS = LESSONS.flatMap(l => l.words.map(w => ({...w, lessonId: l.id})));
+
+/* ══════════════════════════════════════════
+   SPACED REPETITION  (SM-2 simplified)
+   interval schedule: 1→3→7→14→30→60 days
+══════════════════════════════════════════ */
+const SR_INTERVALS = [1, 3, 7, 14, 30, 60];
+
+function srKey(profileId, wordG) { return profileId + ':' + wordG; }
+
+function getSRData(profileId) {
+  const d = getProfileData(profileId);
+  if (!d.sr) d.sr = {};
+  return d.sr;
+}
+
+function recordWordResult(profileId, wordG, correct) {
+  const sr = getSRData(profileId);
+  const key = wordG;
+  if (!sr[key]) sr[key] = { level: 0, nextReview: null };
+  const entry = sr[key];
+  const today = todayISO();
+  if (correct) {
+    entry.level = Math.min(entry.level + 1, SR_INTERVALS.length - 1);
+  } else {
+    entry.level = Math.max(0, entry.level - 1);
+  }
+  const daysUntil = SR_INTERVALS[entry.level];
+  const next = new Date();
+  next.setDate(next.getDate() + daysUntil);
+  entry.nextReview = next.toISOString().slice(0, 10);
+  entry.lastSeen = today;
+}
+
+function getDueWords(profileId) {
+  const sr = getSRData(profileId);
+  const today = todayISO();
+  // Words that have been seen and are due, plus unseen words from completed lessons
+  const d = getProfileData(profileId);
+  const seenWords = [];
+  const unseenWords = [];
+
+  ALL_WORDS.forEach(w => {
+    const entry = sr[w.g];
+    if (entry && entry.nextReview) {
+      if (entry.nextReview <= today) seenWords.push(w);
+    } else {
+      // Unseen — include if lesson is completed and hasn't been reviewed before
+      if (d.completed && d.completed.includes(w.lessonId)) unseenWords.push(w);
+    }
+  });
+
+  return [...seenWords, ...unseenWords.slice(0, Math.max(0, 10 - seenWords.length))];
+}
+
+function getDueCount(profileId) { return getDueWords(profileId).length; }
+
+/* ══════════════════════════════════════════
+   WORD OF THE DAY
+══════════════════════════════════════════ */
+function getWotd() {
+  // Deterministic by day — same word for whole family
+  const dayNum = Math.floor(Date.now() / 86400000);
+  return ALL_WORDS[dayNum % ALL_WORDS.length];
+}
+
+function buildWotd() {
+  const w = getWotd();
+  const section = document.getElementById('wotdSection');
+  section.innerHTML = `
+    <div class="wotd-card">
+      <div class="wotd-icon">✨</div>
+      <div class="wotd-body">
+        <div class="wotd-label">Word of the day</div>
+        <div class="wotd-guj">${w.g}</div>
+        <div class="wotd-roman">${w.r}</div>
+        <div class="wotd-english">${w.e}</div>
+      </div>
+      <button class="wotd-hear" id="wotdBtn">🔊</button>
+    </div>`;
+  document.getElementById('wotdBtn').addEventListener('click', function() {
+    speakWord(w.tts, this);
+  });
+}
+
+/* ══════════════════════════════════════════
+   FAMILY CHALLENGE
+   Rotates weekly — this week's lesson for everyone
+══════════════════════════════════════════ */
+function getCurrentChallenge() {
+  const weekNum = Math.floor(Date.now() / (7 * 86400000));
+  const lesson = LESSONS[weekNum % LESSONS.length];
+  return lesson;
+}
+
+function buildChallenge() {
+  const lesson = getCurrentChallenge();
+  const section = document.getElementById('challengeSection');
+  const completers = PROFILES.filter(p => {
+    const d = getProfileData(p.id);
+    return d.completed && d.completed.includes(lesson.id);
+  });
+  const pct = Math.round((completers.length / PROFILES.length) * 100);
+
+  section.innerHTML = `
+    <div class="challenge-card">
+      <div class="challenge-label">🏆 This week's family challenge</div>
+      <div class="challenge-title">${lesson.icon} Complete "${lesson.name}"</div>
+      <div class="challenge-progress">
+        <div class="challenge-bar-wrap"><div class="challenge-bar" style="width:${pct}%"></div></div>
+        <div class="challenge-pct">${completers.length}/${PROFILES.length}</div>
+      </div>
+      <div class="challenge-profiles">
+        ${PROFILES.map(p => {
+          const done = completers.find(c => c.id === p.id);
+          return `<div class="challenge-pip ${done?'done':''}">${profileAvatar(p,18)} ${p.name} ${done?'✓':''}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  // Check if challenge just became 100% and celebrate
+  if (completers.length === PROFILES.length) {
+    const alreadyCelebrated = localStorage.getItem('challenge_celeb_' + lesson.id);
+    if (!alreadyCelebrated) {
+      localStorage.setItem('challenge_celeb_' + lesson.id, '1');
+      setTimeout(() => launchCelebration('🏆', 'Family challenge complete!', 'mega'), 500);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════
+   LEADERBOARDS
+══════════════════════════════════════════ */
+function getLeaderboardData() {
+  const today = new Date();
+  const last10 = Array.from({length:10}, (_,i) => {
+    const d = new Date(today); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10);
+  });
+  return PROFILES.map(p => {
+    const d = getProfileData(p.id);
+    const log = d.activityLog||[];
+    return { p, d, days10: last10.filter(x=>log.includes(x)).length, allTimeDays: log.length };
+  });
+}
+
+function buildLeaderboardHTML(containerId, activeId) {
+  const rows = getLeaderboardData();
+  const s10 = [...rows].sort((a,b) => b.days10 - a.days10);
+  const sAll = [...rows].sort((a,b) => b.allTimeDays - a.allTimeDays);
+  const ri = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+  const card = (title, sorted, vFn) => `<div class="lb-card"><div class="lb-title">${title}</div>${
+    sorted.map((r,i) => `<div class="lb-row"><div class="lb-rank">${ri(i)}</div><div class="lb-emoji">${profileAvatar(r.p,24)}</div><div class="lb-info"><div class="lb-pname">${r.p.name}</div><div class="lb-val${r.p.id===activeId?' hi':''}">${vFn(r)}</div></div></div>`).join('')
+  }</div>`;
+  document.getElementById(containerId).innerHTML =
+    card('🔥 Last 10 days', s10, r=>`${r.days10}/10 days`) +
+    card('📅 All-time days', sAll, r=>`${r.allTimeDays} day${r.allTimeDays!==1?'s':''}`);
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let allData = {}, currentProfileId = null;
+const audioB64Cache = {};
+
+function loadData() { try { allData = JSON.parse(localStorage.getItem('guj_v4')||'{}'); } catch(e) { allData={}; } }
+function saveData() { try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {} }
+function getProfileData(id) {
+  if (!allData[id]) allData[id] = { pin:null, xp:0, streak:0, lastDate:'', completed:[], activityLog:[], sr:{} };
+  if (!allData[id].activityLog) allData[id].activityLog = [];
+  if (!allData[id].sr) allData[id].sr = {};
+  return allData[id];
+}
+function currentData() { return getProfileData(currentProfileId); }
+function meta(id) { return PROFILES.find(p=>p.id===id); }
+function todayISO() { return new Date().toISOString().slice(0,10); }
+
+/* ══════════════════════════════════════════
+   CONFETTI ENGINE
+══════════════════════════════════════════ */
+const canvas = document.getElementById('confettiCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [], animFrame = null;
+
+function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+function launchConfetti(intensity) {
+  // intensity: 'small'|'big'|'mega'
+  const count = intensity==='mega'?300:intensity==='big'?150:60;
+  const colors = ['#1D9E75','#D4537E','#378ADD','#f4a261','#7F77DD','#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96ceb4'];
+  const shapes = ['circle','square','triangle','star'];
+
+  for (let i=0; i<count; i++) {
+    const shape = shapes[Math.floor(Math.random()*shapes.length)];
+    particles.push({
+      x: Math.random()*canvas.width,
+      y: -20 - Math.random()*canvas.height*0.3,
+      vx: (Math.random()-0.5)*6,
+      vy: 2+Math.random()*5,
+      rot: Math.random()*360,
+      rotV: (Math.random()-0.5)*8,
+      size: 6+Math.random()*10,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      shape,
+      opacity: 1,
+      life: 1
+    });
+  }
+  // Rockets
+  if (intensity==='big'||intensity==='mega') {
+    for (let i=0; i<(intensity==='mega'?8:4); i++) {
+      particles.push({
+        x: Math.random()*canvas.width,
+        y: canvas.height+10,
+        vx: (Math.random()-0.5)*3,
+        vy: -(8+Math.random()*8),
+        rot: 0, rotV: 0, size: 14,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        shape: 'rocket',
+        opacity: 1, life: 1,
+        trail: []
+      });
+    }
+  }
+  if (!animFrame) animateConfetti();
+}
+
+function animateConfetti() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles = particles.filter(p => p.opacity > 0.01 && p.y < canvas.height+50);
+
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.opacity;
+
+    if (p.shape==='rocket') {
+      p.trail.push({x:p.x,y:p.y});
+      if (p.trail.length>12) p.trail.shift();
+      p.trail.forEach((t,i) => {
+        ctx.beginPath();
+        ctx.arc(t.x,t.y,3*(i/p.trail.length),0,Math.PI*2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.opacity*(i/p.trail.length)*0.5;
+        ctx.fill();
+      });
+      ctx.globalAlpha = p.opacity;
+      ctx.font = `${p.size}px serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🚀',p.x,p.y);
+      p.vy += 0.3; // gravity
+      if (p.vy > 0) { // explode at apex
+        p.opacity -= 0.05;
+        launchBurst(p.x, p.y, p.color);
+        p.opacity = 0;
+      }
+    } else {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.color;
+      if (p.shape==='circle') {
+        ctx.beginPath(); ctx.arc(0,0,p.size/2,0,Math.PI*2); ctx.fill();
+      } else if (p.shape==='square') {
+        ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+      } else if (p.shape==='triangle') {
+        ctx.beginPath(); ctx.moveTo(0,-p.size/2); ctx.lineTo(p.size/2,p.size/2); ctx.lineTo(-p.size/2,p.size/2); ctx.closePath(); ctx.fill();
+      } else if (p.shape==='star') {
+        drawStar(ctx, 0, 0, 5, p.size/2, p.size/4);
+        ctx.fill();
+      }
+      p.vy += 0.12;
+      p.life -= 0.008;
+      p.opacity = p.life;
+    }
+    p.x += p.vx; p.y += p.vy; p.rot += p.rotV;
+    ctx.restore();
+  });
+
+  if (particles.length > 0) animFrame = requestAnimationFrame(animateConfetti);
+  else { animFrame = null; ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+
+let burstTimer = null;
+function launchBurst(x, y, color) {
+  const colors2 = ['#ffd700','#ff6b6b','#4ecdc4','#f4a261',color];
+  for (let i=0; i<20; i++) {
+    const angle = (i/20)*Math.PI*2;
+    const speed = 2+Math.random()*4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      rot: 0, rotV: 5,
+      size: 5+Math.random()*6,
+      color: colors2[Math.floor(Math.random()*colors2.length)],
+      shape: 'circle',
+      opacity: 1, life: 1
+    });
+  }
+}
+
+function drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+  let rot = (Math.PI/2)*3, step = Math.PI/spikes;
+  ctx.beginPath(); ctx.moveTo(cx,cy-outerR);
+  for (let i=0;i<spikes;i++) {
+    ctx.lineTo(cx+Math.cos(rot)*outerR, cy+Math.sin(rot)*outerR); rot+=step;
+    ctx.lineTo(cx+Math.cos(rot)*innerR, cy+Math.sin(rot)*innerR); rot+=step;
+  }
+  ctx.lineTo(cx,cy-outerR); ctx.closePath();
+}
+
+/* ══════════════════════════════════════════
+   CELEBRATION OVERLAY
+══════════════════════════════════════════ */
+function launchCelebration(emoji, text, confettiSize) {
+  launchConfetti(confettiSize||'big');
+
+  // Flash overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'celeb-overlay';
+  overlay.innerHTML = `<div class="celeb-emoji">${emoji}</div><div class="celeb-text">${text}</div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 2200);
+}
+
+/* ══════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════ */
+function buildLogin() {
+  buildWotd();
+  buildChallenge();
+  buildLeaderboardHTML('loginLbGrid', null);
+  const grid = document.getElementById('profileGrid');
+  grid.innerHTML = '';
+  PROFILES.forEach(p => {
+    const d = getProfileData(p.id);
+    const due = getDueCount(p.id);
+    const streakAt3 = d.streak > 0 && d.streak % 3 === 0;
+    // Streak risk: had a streak but didn't play today or yesterday
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now()-86400000).toDateString();
+    const atRisk = d.streak > 0 && d.lastDate !== today && d.lastDate !== yesterday;
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.innerHTML = `
+      ${atRisk ? '<div class="streak-risk">🔥 At risk!</div>' : ''}
+      ${due > 0 ? `<div class="review-badge">📚 ${due} due</div>` : ''}
+      <div class="profile-avatar">${profileAvatar(p, 44)}</div>
+      <div class="profile-name">${p.name}</div>
+      <div class="profile-xp">⭐ ${d.xp} XP</div>
+      <div class="profile-streak" style="color:${d.streak>0?'#e85d04':'#ccc'}">${d.streak>0?'🔥 '+d.streak+' day streak':'No streak yet'}</div>
+    `;
+    card.onclick = () => selectProfile(p.id);
+    grid.appendChild(card);
+  });
+}
+
+function selectProfile(id) {
+  currentProfileId = id;
+  const d = getProfileData(id);
+  if (d.pin===null) showPinSetup(); else showPinEntry(false);
+}
+
+/* ══════════════════════════════════════════
+   PIN
+══════════════════════════════════════════ */
+let pinBuffer='', pinMode='entry', pinFirst='';
+function showPinSetup() { pinMode='setup1'; pinBuffer=''; pinFirst=''; renderPin('Choose a 4-digit PIN','Step 1 of 2',false); showScreen('pinScreen'); }
+function showPinEntry(shake) { pinMode='entry'; pinBuffer=''; renderPin('Enter your PIN','',shake); showScreen('pinScreen'); }
+function renderPin(label, step, shake) {
+  const p = meta(currentProfileId);
+  document.getElementById('pinWrap').innerHTML = `
+    <div class="pin-avatar-emoji">${profileAvatar(p, 64)}</div>
+    <div class="pin-name">${p.name}</div>
+    ${step?`<div class="pin-step">${step}</div>`:''}
+    <div class="pin-label">${label}</div>
+    <div class="pin-dots">${[0,1,2,3].map(()=>`<div class="pin-dot${shake?' wrong':''}"></div>`).join('')}</div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">${[1,2,3,4,5,6,7,8,9,'','0','⌫'].map(k=>`<button class="pin-key${k==='⌫'?' del':''}" onclick="pinKey('${k}')" ${k===''?'style="visibility:hidden"':''}>${k}</button>`).join('')}</div>
+    <button class="back-link" onclick="logout()">← Back to profiles</button>`;
+}
+function pinKey(k) {
+  if (k==='⌫') pinBuffer=pinBuffer.slice(0,-1);
+  else if (k!==''&&pinBuffer.length<4) pinBuffer+=k;
+  document.querySelectorAll('.pin-dot').forEach((d,i) => { d.className='pin-dot'+(i<pinBuffer.length?' filled':''); });
+  if (pinBuffer.length===4) setTimeout(handlePin,130);
+}
+function handlePin() {
+  const d = getProfileData(currentProfileId);
+  if (pinMode==='setup1') { pinFirst=pinBuffer; pinBuffer=''; pinMode='setup2'; renderPin('Confirm your PIN','Step 2 of 2',false); }
+  else if (pinMode==='setup2') {
+    if (pinBuffer===pinFirst) { d.pin=pinBuffer; saveData(); enterHome(); }
+    else { pinBuffer=''; pinFirst=''; pinMode='setup1'; renderPin('Choose a 4-digit PIN','Step 1 of 2',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent="PINs didn't match — try again"; },50); }
+  } else {
+    if (pinBuffer===d.pin) enterHome();
+    else { pinBuffer=''; renderPin('Enter your PIN','',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent='Wrong PIN — try again'; },50); }
+  }
+}
+
+/* ══════════════════════════════════════════
+   HOME
+══════════════════════════════════════════ */
+function enterHome() {
+  const p = meta(currentProfileId), d = currentData();
+  const today = new Date().toDateString(), yesterday = new Date(Date.now()-86400000).toDateString();
+  const prevStreak = d.streak;
+  if (d.lastDate !== today) {
+    d.streak = (d.lastDate===yesterday) ? d.streak+1 : 1;
+    d.lastDate = today;
+    const iso = todayISO();
+    if (!d.activityLog.includes(iso)) d.activityLog.push(iso);
+    saveData();
+  }
+
+  // Streak milestone celebrations
+  if (d.streak !== prevStreak) {
+    if (d.streak === 3)  setTimeout(() => launchCelebration('🔥','3-day streak!','big'), 400);
+    if (d.streak === 7)  setTimeout(() => launchCelebration('🚀','7-day streak!','mega'), 400);
+    if (d.streak === 14) setTimeout(() => launchCelebration('⭐','2-week streak!','mega'), 400);
+    if (d.streak === 30) setTimeout(() => launchCelebration('👑','30-day streak!','mega'), 400);
+  }
+
+  document.getElementById('homeAvatarEmoji').innerHTML = profileAvatar(p, 38);
+  document.getElementById('homeName').textContent = 'Hi, '+p.name+'!';
+  updateHomeStats();
+  buildReviewSection();
+  updateLessons();
+  showScreen('homeScreen');
+}
+
+function updateHomeStats() {
+  const d = currentData();
+  document.getElementById('statXP').textContent = d.xp;
+  document.getElementById('statStreak').textContent = d.streak;
+  document.getElementById('statWords').textContent = d.completed.reduce((a,id) => {
+    const l = LESSONS.find(x=>x.id===id); return a+(l?l.words.length:0);
+  }, 0);
+}
+
+function buildReviewSection() {
+  const due = getDueWords(currentProfileId);
+  const section = document.getElementById('reviewSection');
+  if (due.length === 0) { section.innerHTML = ''; return; }
+  section.innerHTML = `
+    <div class="review-card" onclick="startReview()">
+      <div class="review-icon">🧠</div>
+      <div class="review-info">
+        <div class="review-title">Daily Review — ${due.length} word${due.length!==1?'s':''} due</div>
+        <div class="review-sub">Spaced repetition keeps words fresh</div>
+      </div>
+      <div class="review-arrow">→</div>
+    </div>`;
+}
+
+function updateLessons() {
+  const d = currentData();
+  const list = document.getElementById('lessonList');
+  list.innerHTML = '';
+  LESSONS.forEach((lesson, i) => {
+    const done = d.completed.includes(lesson.id);
+    const locked = i>0 && !d.completed.includes(LESSONS[i-1].id);
+    const row = document.createElement('div');
+    row.className = 'lesson-row'+(locked?' locked':'');
+    row.innerHTML = `<div class="l-icon">${lesson.icon}</div><div class="l-info"><div class="l-name">${lesson.name}</div><div class="l-desc">${lesson.desc}</div></div><div class="l-badge ${done?'done':''}">${done?'✓ Done':locked?'🔒':'Start →'}</div>`;
+    if (!locked) row.onclick = () => startLesson(lesson);
+    list.appendChild(row);
+  });
+}
+
+function logout() { currentProfileId=null; buildLogin(); showScreen('loginScreen'); }
+function goHome() { updateHomeStats(); buildReviewSection(); updateLessons(); showScreen('homeScreen'); }
+
+/* ══════════════════════════════════════════
+   AUDIO
+══════════════════════════════════════════ */
+let currentAudio = null; // track active audio globally so we can stop it on card change
+
+async function speakWord(ttsText, btnEl) {
+  // Stop any currently playing audio
+  if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime=0; } catch(e){} currentAudio=null; }
+
+  // Disable button while loading/playing but NEVER change its text
+  if (btnEl) btnEl.disabled = true;
+
+  function reEnable() { if (btnEl && document.contains(btnEl)) btnEl.disabled = false; }
+
+  try {
+    let b64 = audioB64Cache[ttsText];
+    if (!b64) {
+      const resp = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${API_KEY}`,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            input: { text: ttsText },
+            voice: { languageCode:'gu-IN', name:'gu-IN-Standard-A', ssmlGender:'FEMALE' },
+            audioConfig: { audioEncoding:'MP3', speakingRate:0.82 }
+          })
+        }
+      );
+      const data = await resp.json();
+      if (!data.audioContent) throw new Error('No audio returned — check API key');
+      b64 = data.audioContent;
+      audioB64Cache[ttsText] = b64;
+    }
+
+    // Guard: if button was removed from DOM during fetch, abort silently
+    if (btnEl && !document.contains(btnEl)) return;
+
+    const audio = new Audio('data:audio/mp3;base64,' + b64);
+    currentAudio = audio;
+    audio.onended = () => { currentAudio=null; reEnable(); };
+    audio.onerror = () => { currentAudio=null; reEnable(); };
+    const playPromise = audio.play();
+    if (playPromise) playPromise.catch(() => { reEnable(); });
+    setTimeout(reEnable, 4000);
+
+  } catch(err) {
+    reEnable();
+    console.error('TTS error:', err.message);
+    alert('Audio error: ' + err.message);
+  }
+}
+
+/* ══════════════════════════════════════════
+   PRONUNCIATION SCORING
+══════════════════════════════════════════ */
+function levenshtein(a,b) {
+  const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++) dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+function basicTranslit(text) {
+  const map={'ક':'k','ખ':'kh','ગ':'g','ઘ':'gh','ચ':'ch','છ':'chh','જ':'j','ઝ':'jh','ત':'t','થ':'th','દ':'d','ધ':'dh','ન':'n','પ':'p','ફ':'f','બ':'b','ભ':'bh','મ':'m','ય':'y','ર':'r','લ':'l','ળ':'l','વ':'v','શ':'sh','ષ':'sh','સ':'s','હ':'h','ા':'aa','િ':'i','ી':'ee','ુ':'u','ૂ':'oo','ે':'e','ૈ':'ai','ો':'o','ૌ':'au','ં':'n','અ':'a','આ':'aa','ઇ':'i','ઈ':'ee','ઉ':'u','ઊ':'oo','એ':'e','ઓ':'o'};
+  return text.split('').map(c=>map[c]||c).join('').replace(/[^\w\s]/g,'').toLowerCase().trim();
+}
+function scorePronu(heard, expectedRoman) {
+  if (!heard||!heard.trim()) return {level:'nothing'};
+  const h = heard.toLowerCase().replace(/[^a-z\u0A80-\u0AFF\s]/g,'').trim();
+  const hR = /[\u0A80-\u0AFF]/.test(h) ? basicTranslit(h) : h.replace(/[^a-z\s]/g,'');
+  const e = expectedRoman.toLowerCase().trim();
+  if (hR===e) return {level:'great'};
+  const hW=hR.split(/\s+/), eW=e.split(/\s+/);
+  let hits=0;
+  eW.forEach(ew => { if(hW.some(hw=>hw===ew||levenshtein(hw,ew)<=Math.ceil(ew.length*0.35))) hits++; });
+  const ratio=hits/eW.length;
+  if (ratio>=0.75) return {level:'great'};
+  if (ratio>=0.4)  return {level:'ok'};
+  if (hR.length>0) return {level:'retry'};
+  return {level:'nothing'};
+}
+const FB_MSGS = {
+  great:  ['🌟 Excellent! That sounded great!','🌟 Perfect — you nailed it!','🌟 Spot on!'],
+  ok:     ['👍 Good try! Listen again and match it more closely.','👍 Getting there — try once more!'],
+  retry:  ['🔄 Not quite — listen carefully and try again.','🔄 Keep at it — you can do this!'],
+  nothing:['🎤 We didn\'t hear anything. Check your mic and speak clearly!','🎤 Speak up — we\'re listening!'],
+};
+function randFB(level) { const a=FB_MSGS[level]; return a[Math.floor(Math.random()*a.length)]; }
+
+/* ══════════════════════════════════════════
+   LESSON + REVIEW ENGINE
+══════════════════════════════════════════ */
+let curLesson=null, curQ=0, questions=[], sessXP=0, sessCorrect=0, isReview=false;
+
+function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function buildQuestions(words, allWordsPool) {
+  const qs = [];
+  words.forEach(w => qs.push({type:'listen', word:w}));
+  words.forEach(w => {
+    const others = shuffle(allWordsPool.filter(x=>x.g!==w.g)).slice(0,3);
+    if (others.length < 3) return; // skip pick if not enough words
+    qs.push({type:'pick', word:w, choices:shuffle([w,...others])});
+  });
+  return shuffle(qs).slice(0, Math.min(10, qs.length));
+}
+
+function startLesson(lesson) {
+  isReview = false;
+  curLesson = lesson;
+  curQ = 0;
+  questions = buildQuestions(lesson.words, ALL_WORDS);
+  sessXP = 0; sessCorrect = 0;
+  showScreen('lessonScreen'); renderQ();
+}
+
+function startReview() {
+  isReview = true;
+  curLesson = null;
+  const due = getDueWords(currentProfileId).slice(0, 10);
+  if (due.length===0) { goHome(); return; }
+  curQ = 0;
+  questions = buildQuestions(due, ALL_WORDS);
+  sessXP = 0; sessCorrect = 0;
+  showScreen('lessonScreen'); renderQ();
+}
+
+function renderQ() {
+  const q = questions[curQ];
+  document.getElementById('progressFill').style.width = Math.round((curQ/questions.length)*100)+'%';
+  document.getElementById('progLabel').textContent = curQ+' / '+questions.length;
+  document.getElementById('nextBtn').className = 'next-btn';
+  q.type==='listen' ? renderListen(document.getElementById('qCard'),q) : renderPick(document.getElementById('qCard'),q);
+}
+
+function renderListen(card, q) {
+  const w = q.word;
+  card.innerHTML = `
+    <div class="q-type">${isReview?'Review: ':''}Listen &amp; Repeat</div>
+    <div class="guj-big">${w.g}</div>
+    <div class="roman">${w.r}</div>
+    <div class="english">${w.e}</div>
+    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}">🔊 Hear it</button>
+    <div class="mic-section">
+      <button class="mic-btn" id="micBtn" data-roman="${encodeURIComponent(w.roman)}">🎤 Now say it out loud</button>
+      <div class="pronun-result" id="pronunResult"></div>
+      <div class="mic-required-note" id="micNote">You must say it before continuing</div>
+    </div>`;
+  document.getElementById('listenBtn').addEventListener('click', function() { speakWord(decodeURIComponent(this.dataset.tts),this); });
+  document.getElementById('micBtn').addEventListener('click', function() { doRecord(decodeURIComponent(this.dataset.roman), q.word); });
+  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 400);
+}
+
+function doRecord(expectedRoman, word) {
+  const micBtn=document.getElementById('micBtn'), result=document.getElementById('pronunResult'), note=document.getElementById('micNote');
+  if (!window.SpeechRecognition&&!window.webkitSpeechRecognition) {
+    result.className='pronun-result retry show'; result.innerHTML='Speech recognition requires Chrome on desktop. Continuing...';
+    note.style.display='none'; document.getElementById('nextBtn').className='next-btn show'; return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=new SR();
+  rec.lang='gu-IN'; rec.continuous=false; rec.interimResults=false;
+  micBtn.className='mic-btn recording'; micBtn.textContent='🔴 Listening... speak now!'; micBtn.disabled=true;
+  result.className='pronun-result'; note.style.display='none';
+  rec.onresult = (e) => {
+    const heard=e.results[0][0].transcript.trim(), score=scorePronu(heard,expectedRoman);
+    result.className=`pronun-result ${score.level} show`;
+    result.innerHTML=`${randFB(score.level)}<div class="pronun-heard">We heard: "${heard}"</div>`;
+    micBtn.disabled=false;
+    const correct = score.level==='great'||score.level==='ok';
+    recordWordResult(currentProfileId, word.g, correct);
+    saveData();
+    if (correct) {
+      micBtn.className='mic-btn success'; micBtn.textContent='✓ Good job!';
+      micBtn.onclick=()=>doRecord(expectedRoman,word);
+      addXP(true);
+    } else {
+      micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
+      micBtn.onclick=()=>doRecord(expectedRoman,word);
+      document.getElementById('nextBtn').className='next-btn show';
+    }
+  };
+  rec.onerror = (e) => {
+    result.className='pronun-result nothing show';
+    result.innerHTML=`🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and closer to the mic.':'Mic error: '+e.error}`;
+    micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again'; micBtn.disabled=false;
+    micBtn.onclick=()=>doRecord(expectedRoman,word);
+    document.getElementById('nextBtn').className='next-btn show';
+  };
+  rec.start();
+  setTimeout(() => { try{rec.stop();}catch(err){} }, 5000);
+}
+
+function renderPick(card, q) {
+  const w = q.word;
+  card.innerHTML = `
+    <div class="q-type">${isReview?'Review: ':''}What does this mean?</div>
+    <div class="guj-big">${w.g}</div>
+    <div class="roman">${w.r}</div>
+    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}" style="margin-bottom:0.75rem;">🔊 Hear it</button>
+    <div class="choices" id="choicesEl"></div>
+    <div class="pick-feedback" id="pickFb"></div>`;
+  document.getElementById('listenBtn').addEventListener('click', function() { speakWord(decodeURIComponent(this.dataset.tts),this); });
+  const choicesEl = document.getElementById('choicesEl');
+  q.choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className='choice-btn'; btn.textContent=c.e;
+    btn.addEventListener('click', () => checkChoice(btn,c.g,w.g,w.e,w));
+    choicesEl.appendChild(btn);
+  });
+  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 400);
+}
+
+function checkChoice(btn, selected, correct, correctLabel, word) {
+  document.querySelectorAll('.choice-btn').forEach(b=>{ b.disabled=true; b.onclick=null; });
+  const fb = document.getElementById('pickFb');
+  const isCorrect = selected===correct;
+  recordWordResult(currentProfileId, word.g, isCorrect);
+  saveData();
+  if (isCorrect) {
+    btn.className='choice-btn correct'; fb.className='pick-feedback good show'; fb.textContent='✓ Correct!';
+    addXP(true);
+  } else {
+    btn.className='choice-btn wrong';
+    document.querySelectorAll('.choice-btn').forEach(b=>{ if(b!==btn&&b.textContent.trim()===correctLabel) b.className='choice-btn correct'; });
+    fb.className='pick-feedback bad show'; fb.textContent='Not quite — the correct answer is highlighted.';
+    document.getElementById('nextBtn').className='next-btn show';
+  }
+}
+
+function addXP(correct) {
+  if (correct) { sessXP+=10; sessCorrect+=1; }
+  document.getElementById('nextBtn').className='next-btn show';
+  showToast('+10 XP ⭐');
+  // Mini confetti on perfect streak within session
+  if (sessCorrect > 0 && sessCorrect % 5 === 0) launchConfetti('small');
+}
+
+function nextQ() { curQ++; curQ>=questions.length ? finishLesson() : renderQ(); }
+
+function finishLesson() {
+  const d = currentData(), p = meta(currentProfileId);
+  d.xp += sessXP;
+  if (!isReview && curLesson && !d.completed.includes(curLesson.id)) {
+    d.completed.push(curLesson.id);
+    // Mark all words in lesson as seen
+    curLesson.words.forEach(w => recordWordResult(currentProfileId, w.g, true));
+  }
+  const iso = todayISO();
+  if (!d.activityLog.includes(iso)) d.activityLog.push(iso);
+  saveData();
+
+  const perfScore = sessCorrect / Math.max(1, questions.length);
+  const isMega = perfScore >= 0.9;
+  const isBig  = perfScore >= 0.6;
+
+  document.getElementById('cIcon').textContent = isMega?'🏆':sessCorrect>=4?'🎉':'👏';
+  document.getElementById('cTitle').textContent = isReview ? 'Review complete!' : curLesson.name+' complete!';
+
+  let subMsg = '';
+  if (isMega) subMsg = `Incredible, ${p.name}! Near-perfect! 🌟`;
+  else if (isBig) subMsg = `Great work, ${p.name}! Keep it up!`;
+  else subMsg = `Good effort, ${p.name}! Come back tomorrow to keep your streak.`;
+  document.getElementById('cSub').textContent = subMsg;
+  document.getElementById('cXP').textContent = sessXP;
+  document.getElementById('cCorrect').textContent = sessCorrect;
+
+  // SR next review hint
+  const nextDue = getDueWords(currentProfileId);
+  const srEl = document.getElementById('srNext');
+  if (nextDue.length > 0) {
+    srEl.innerHTML = `🧠 <strong>${nextDue.length} word${nextDue.length!==1?'s':''}</strong> due for review — come back tomorrow to keep them fresh!`;
+  } else {
+    srEl.innerHTML = `✅ You're all caught up on reviews! Check back tomorrow.`;
+  }
+
+  // Celebration
+  setTimeout(() => launchCelebration(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
+  showScreen('completeScreen');
+}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400);
+}
+
+loadData(); buildLogin();
+</script>
+</body>
+</html>
