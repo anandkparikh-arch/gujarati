@@ -2,12 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ગુજરાતી">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f3ee">
 <title>ગુજરાતી શીખો</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f3ee; color: #1a1a1a; min-height: 100vh; overflow-x: hidden; }
-.app { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f3ee; color: #1a1a1a; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+.app { max-width: 480px; margin: 0 auto; padding: 1rem 1rem env(safe-area-inset-bottom, 2rem); padding-bottom: max(3rem, env(safe-area-inset-bottom)); }
 .screen { display: none; }
 .screen.active { display: block; }
 
@@ -550,29 +555,45 @@ const audioB64Cache = {};
 function loadData() { try { allData = JSON.parse(localStorage.getItem('guj_v4')||'{}'); } catch(e) { allData={}; } }
 
 function saveData() {
-  // Always write to localStorage as offline cache
+  // Always write to localStorage immediately as offline cache
   try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
-  // Write each profile to Firestore asynchronously
+  // Write each profile to Firestore — retry once on failure
   PROFILES.forEach(p => {
     const d = allData[p.id];
     if (!d) return;
-    db.collection('profiles').doc(p.id).set(d).catch(err => console.warn('Firestore write error:', err));
+    const payload = JSON.parse(JSON.stringify(d)); // deep clone to avoid mutation issues
+    db.collection('profiles').doc(p.id).set(payload)
+      .catch(err => {
+        console.warn(`Firestore write failed for ${p.id}, retrying...`, err);
+        // Retry once after 2s
+        setTimeout(() => {
+          db.collection('profiles').doc(p.id).set(payload)
+            .catch(e2 => console.error(`Firestore retry failed for ${p.id}:`, e2));
+        }, 2000);
+      });
   });
 }
 
 async function loadFromFirestore() {
-  // Show a brief loading state on the login screen
   try {
     const snapshot = await db.collection('profiles').get();
+    if (snapshot.empty) {
+      // No data in Firestore yet — push local data up so it syncs
+      console.log('Firestore empty — pushing local data up');
+      saveData();
+      return;
+    }
     snapshot.forEach(doc => {
-      // Firestore wins over localStorage — it's the source of truth
-      allData[doc.id] = doc.data();
+      // Firestore is source of truth — merge carefully
+      const remote = doc.data();
+      const local = allData[doc.id] || {};
+      // Keep PIN from local if Firestore doesn't have it (first sync)
+      if (!remote.pin && local.pin) remote.pin = local.pin;
+      allData[doc.id] = remote;
     });
-    // Update localStorage cache with fresh Firestore data
     try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
   } catch(err) {
     console.warn('Firestore read failed, using local cache:', err);
-    // Already loaded from localStorage as fallback — just continue
   }
 }
 function getProfileData(id) {
@@ -596,8 +617,8 @@ function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.i
 window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
 function launchConfetti(intensity) {
-  // intensity: 'small'|'big'|'mega'
-  const count = intensity==='mega'?300:intensity==='big'?150:60;
+  const mobile = isMobile();
+  const count = intensity==='mega'?(mobile?120:300):intensity==='big'?(mobile?60:150):(mobile?25:60);
   const colors = ['#1D9E75','#D4537E','#378ADD','#f4a261','#7F77DD','#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96ceb4'];
   const shapes = ['circle','square','triangle','star'];
 
@@ -1033,7 +1054,7 @@ function renderListen(card, q) {
     <div class="english">${w.e}</div>
     <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}">🔊 Hear it</button>
     <div class="mic-section">
-      <button class="mic-btn" id="micBtn" data-roman="${encodeURIComponent(w.roman)}">🎤 Now say it out loud</button>
+      <button class="mic-btn" id="micBtn" data-roman="${encodeURIComponent(w.roman)}">🎤 ${isMobile() ? 'Tap to say it' : 'Now say it out loud'}</button>
       <div class="pronun-result" id="pronunResult"></div>
       <div class="mic-required-note" id="micNote">You must say it before continuing</div>
     </div>`;
@@ -1042,17 +1063,52 @@ function renderListen(card, q) {
   setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
 }
 
+function isMobileSafari() {
+  const ua = navigator.userAgent;
+  return /iP(hone|od|ad)/.test(ua) && /WebKit/.test(ua) && !/CriOS/.test(ua) && !/FxiOS/.test(ua);
+}
+function isMobile() { return /Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent); }
+function getSR() { return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+
 function doRecord(expectedRoman, word) {
   const micBtn=document.getElementById('micBtn'), result=document.getElementById('pronunResult'), note=document.getElementById('micNote');
-  if (!window.SpeechRecognition&&!window.webkitSpeechRecognition) {
-    result.className='pronun-result retry show'; result.innerHTML='Speech recognition requires Chrome on desktop. Continuing...';
-    note.style.display='none'; document.getElementById('nextBtn').className='next-btn show'; return;
+  const SR = getSR();
+
+  // iOS Chrome doesn't support SpeechRecognition — Safari does but needs explicit user gesture
+  // If no SR available at all, skip gracefully
+  if (!SR) {
+    result.className='pronun-result retry show';
+    result.innerHTML=`🎤 Speech recognition isn't available in this browser. Try Safari on iPhone or Chrome on desktop.<br><small>Tap Continue to keep going.</small>`;
+    note.style.display='none';
+    document.getElementById('nextBtn').className='next-btn show';
+    return;
   }
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=new SR();
-  rec.lang='gu-IN'; rec.continuous=false; rec.interimResults=false;
-  micBtn.className='mic-btn recording'; micBtn.textContent='🔴 Listening... speak now!'; micBtn.disabled=true;
-  result.className='pronun-result'; note.style.display='none';
+
+  let rec;
+  try { rec = new SR(); } catch(e) {
+    result.className='pronun-result retry show';
+    result.innerHTML='🎤 Could not start mic. Tap Continue to keep going.';
+    note.style.display='none';
+    document.getElementById('nextBtn').className='next-btn show';
+    return;
+  }
+
+  // On iOS Safari, lang must be set before start and interimResults must be false
+  rec.lang = 'gu-IN';
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+
+  micBtn.className='mic-btn recording';
+  micBtn.textContent = isMobile() ? '🔴 Listening...' : '🔴 Listening... speak now!';
+  micBtn.disabled = true;
+  result.className='pronun-result';
+  note.style.display='none';
+
+  let didGetResult = false;
+
   rec.onresult = (e) => {
+    didGetResult = true;
     const heard=e.results[0][0].transcript.trim(), score=scorePronu(heard,expectedRoman);
     result.className=`pronun-result ${score.level} show`;
     result.innerHTML=`${randFB(score.level)}<div class="pronun-heard">We heard: "${heard}"</div>`;
@@ -1070,15 +1126,51 @@ function doRecord(expectedRoman, word) {
       document.getElementById('nextBtn').className='next-btn show';
     }
   };
+
   rec.onerror = (e) => {
-    result.className='pronun-result nothing show';
-    result.innerHTML=`🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and closer to the mic.':'Mic error: '+e.error}`;
-    micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again'; micBtn.disabled=false;
+    didGetResult = true;
+    micBtn.disabled=false;
+    // On iOS 'not-allowed' means mic permission denied
+    if (e.error==='not-allowed'||e.error==='permission-denied') {
+      result.className='pronun-result nothing show';
+      result.innerHTML='🎤 Mic access denied. Go to Settings → Safari → Microphone and allow access.';
+    } else {
+      result.className='pronun-result nothing show';
+      result.innerHTML=`🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and try again.':'Mic error: '+e.error+'. Try again.'}`;
+    }
+    micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
     micBtn.onclick=()=>doRecord(expectedRoman,word);
     document.getElementById('nextBtn').className='next-btn show';
   };
-  rec.start();
-  setTimeout(() => { try{rec.stop();}catch(err){} }, 5000);
+
+  rec.onend = () => {
+    // On iOS Safari, onend fires before onresult sometimes — wait a tick
+    setTimeout(() => {
+      if (!didGetResult) {
+        micBtn.disabled=false;
+        micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
+        micBtn.onclick=()=>doRecord(expectedRoman,word);
+        result.className='pronun-result nothing show';
+        result.innerHTML='🎤 Nothing heard — tap the mic and try again.';
+        document.getElementById('nextBtn').className='next-btn show';
+      }
+    }, 300);
+  };
+
+  try {
+    rec.start();
+  } catch(e) {
+    micBtn.disabled=false; micBtn.className='mic-btn'; micBtn.textContent='🎤 Try again';
+    result.className='pronun-result retry show';
+    result.innerHTML='🎤 Could not start mic. Make sure microphone permission is granted.';
+    document.getElementById('nextBtn').className='next-btn show';
+    return;
+  }
+
+  // iOS Safari stops automatically after ~5s; desktop needs manual stop
+  if (!isMobileSafari()) {
+    setTimeout(() => { try{rec.stop();}catch(err){} }, 5000);
+  }
 }
 
 function renderPick(card, q) {
