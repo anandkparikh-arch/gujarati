@@ -574,28 +574,6 @@ function saveData() {
   });
 }
 
-async function loadFromFirestore() {
-  try {
-    const snapshot = await db.collection('profiles').get();
-    if (snapshot.empty) {
-      // No data in Firestore yet — push local data up so it syncs
-      console.log('Firestore empty — pushing local data up');
-      saveData();
-      return;
-    }
-    snapshot.forEach(doc => {
-      // Firestore is source of truth — merge carefully
-      const remote = doc.data();
-      const local = allData[doc.id] || {};
-      // Keep PIN from local if Firestore doesn't have it (first sync)
-      if (!remote.pin && local.pin) remote.pin = local.pin;
-      allData[doc.id] = remote;
-    });
-    try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
-  } catch(err) {
-    console.warn('Firestore read failed, using local cache:', err);
-  }
-}
 function getProfileData(id) {
   if (!allData[id]) allData[id] = { pin:null, xp:0, streak:0, lastDate:'', completed:[], activityLog:[], sr:{} };
   if (!allData[id].activityLog) allData[id].activityLog = [];
@@ -1274,15 +1252,40 @@ function showToast(msg) {
   t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400);
 }
 
-loadData(); // load localStorage cache immediately so app isn't blank
+loadData(); // load localStorage instantly
+buildLogin(); // show UI immediately — no waiting
 
-// Then fetch Firestore data and rebuild login once it arrives
+// Then sync from Firestore in background and refresh if data changed
 (async () => {
-  // Show a subtle loading message while fetching
-  const grid = document.getElementById('profileGrid');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:#aaa;font-size:14px;">Loading family progress...</div>';
-  await loadFromFirestore();
-  buildLogin();
+  try {
+    const snapshot = await db.collection('profiles').get();
+    if (snapshot.empty) {
+      // Nothing in Firestore yet — push local data up
+      saveData();
+      return;
+    }
+    let changed = false;
+    snapshot.forEach(doc => {
+      const remote = doc.data();
+      const local = allData[doc.id] || {};
+      if (!remote.pin && local.pin) remote.pin = local.pin;
+      // Only update if remote data is actually different
+      if (JSON.stringify(remote) !== JSON.stringify(allData[doc.id])) {
+        allData[doc.id] = remote;
+        changed = true;
+      }
+    });
+    if (changed) {
+      try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
+      // Silently refresh the login screen with updated data
+      // Only if user hasn't already navigated past it
+      if (document.getElementById('loginScreen').classList.contains('active')) {
+        buildLogin();
+      }
+    }
+  } catch(err) {
+    console.warn('Background Firestore sync failed:', err);
+  }
 })();
 
 </script>
