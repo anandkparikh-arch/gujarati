@@ -883,16 +883,25 @@ function goHome() { updateHomeStats(); buildReviewSection(); updateLessons(); sh
 /* ══════════════════════════════════════════
    AUDIO
 ══════════════════════════════════════════ */
-let currentAudio = null; // track active audio globally so we can stop it on card change
+let currentAudio = null;
+let speakCallId = 0; // increments each call — stale callbacks self-cancel
 
 async function speakWord(ttsText, btnEl) {
-  // Stop any currently playing audio
-  if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime=0; } catch(e){} currentAudio=null; }
+  // Cancel any previous in-flight call
+  speakCallId++;
+  const myCallId = speakCallId;
 
-  // Disable button while loading/playing but NEVER change its text
+  // Stop any playing audio
+  if (currentAudio) { try { currentAudio.pause(); } catch(e){} currentAudio = null; }
+
+  // Disable button (but never change its text)
   if (btnEl) btnEl.disabled = true;
 
-  function reEnable() { if (btnEl && document.contains(btnEl)) btnEl.disabled = false; }
+  // Re-enable only if this call is still the current one and button still in DOM
+  function reEnable() {
+    if (myCallId !== speakCallId) return; // stale call — do nothing
+    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+  }
 
   try {
     let b64 = audioB64Cache[ttsText];
@@ -913,16 +922,19 @@ async function speakWord(ttsText, btnEl) {
       audioB64Cache[ttsText] = b64;
     }
 
-    // Guard: if button was removed from DOM during fetch, abort silently
+    // If a newer call has started while we were fetching, bail out
+    if (myCallId !== speakCallId) return;
+    // If button left the DOM, bail out
     if (btnEl && !document.contains(btnEl)) return;
 
     const audio = new Audio('data:audio/mp3;base64,' + b64);
     currentAudio = audio;
-    audio.onended = () => { currentAudio=null; reEnable(); };
-    audio.onerror = () => { currentAudio=null; reEnable(); };
-    const playPromise = audio.play();
-    if (playPromise) playPromise.catch(() => { reEnable(); });
-    setTimeout(reEnable, 4000);
+    audio.onended = () => { currentAudio = null; reEnable(); };
+    audio.onerror = () => { currentAudio = null; reEnable(); };
+    const p = audio.play();
+    if (p) p.catch(() => reEnable());
+    // Hard failsafe — always re-enable after 5s no matter what
+    setTimeout(reEnable, 5000);
 
   } catch(err) {
     reEnable();
@@ -1027,7 +1039,7 @@ function renderListen(card, q) {
     </div>`;
   document.getElementById('listenBtn').addEventListener('click', function() { speakWord(decodeURIComponent(this.dataset.tts),this); });
   document.getElementById('micBtn').addEventListener('click', function() { doRecord(decodeURIComponent(this.dataset.roman), q.word); });
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 400);
+  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
 }
 
 function doRecord(expectedRoman, word) {
@@ -1086,7 +1098,7 @@ function renderPick(card, q) {
     btn.addEventListener('click', () => checkChoice(btn,c.g,w.g,w.e,w));
     choicesEl.appendChild(btn);
   });
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 400);
+  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
 }
 
 function checkChoice(btn, selected, correct, correctLabel, word) {
