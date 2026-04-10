@@ -235,6 +235,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="stat-card"><div class="stat-num" id="statXP">0</div><div class="stat-label">⭐ XP</div></div>
     <div class="stat-card"><div class="stat-num" id="statWords">0</div><div class="stat-label">💬 Words</div></div>
   </div>
+  <div style="text-align:center;margin:-0.5rem 0 0.75rem;">
+    <span id="levelBadge" style="font-size:13px;font-weight:700;background:#f0f0f0;padding:4px 14px;border-radius:99px;color:#555;">🌱 Beginner</span>
+  </div>
   <div id="reviewSection"></div>
   <div class="section-label">Lessons</div>
   <div class="home-lessons" id="lessonList"></div>
@@ -306,8 +309,29 @@ const PROFILES = [
 /* ══════════════════════════════════════════
    LESSONS  —  add new ones here
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   LEVEL SYSTEM
+══════════════════════════════════════════ */
+const LEVELS = [
+  { name:'Beginner', icon:'🌱', min:0    },
+  { name:'Explorer', icon:'🔍', min:100  },
+  { name:'Speaker',  icon:'💬', min:300  },
+  { name:'Learner',  icon:'📚', min:600  },
+  { name:'Fluent',   icon:'🌟', min:1000 },
+  { name:'Master',   icon:'👑', min:1500 },
+];
+function getLevel(xp) {
+  let lv = LEVELS[0];
+  for (const l of LEVELS) { if (xp >= l.min) lv = l; else break; }
+  return lv;
+}
+function getNextLevel(xp) {
+  for (const l of LEVELS) { if (xp < l.min) return l; }
+  return null;
+}
+
 const LESSONS = [
-  { id:'greetings', name:'Greetings', desc:'Hello, goodbye, thank you', icon:'👋', words:[
+  { id:'greetings', tier:1, name:'Greetings', desc:'Hello, goodbye, thank you', icon:'👋', words:[
     { g:'નમસ્તે',   r:'Namaste',   e:'Hello',             tts:'નમસ્તે',   roman:'namaste' },
     { g:'આવજો',    r:'Aavjo',     e:'Goodbye',           tts:'આવજો',    roman:'aavjo' },
     { g:'આભાર',    r:'Aabhar',    e:'Thank you',         tts:'આભાર',    roman:'aabhar' },
@@ -315,17 +339,17 @@ const LESSONS = [
     { g:'ના',      r:'Naa',       e:'No',                tts:'ના',      roman:'naa' },
     { g:'માફ કરો', r:'Maaf karo', e:'Sorry / Excuse me', tts:'માફ કરો', roman:'maaf karo' },
   ]},
-  { id:'family', name:'Family', desc:'Mom, dad, siblings, grandparents', icon:'👨‍👩‍👧‍👦', words:[
-    { g:'મા',   r:'Maa',    e:'Mom',                    tts:'મા',   roman:'maa' },
-    { g:'બાપા', r:'Baapaa', e:'Dad',                    tts:'બાપા', roman:'baapaa' },
-    { g:'ભાઈ',  r:'Bhai',   e:'Brother',                tts:'ભાઈ',  roman:'bhai' },
-    { g:'બહેન', r:'Bahen',  e:'Sister',                 tts:'બહેન', roman:'bahen' },
-    { g:'દાદા', r:'Daadaa', e:'Grandfather (paternal)', tts:'દાદા', roman:'daadaa' },
-    { g:'દાદી', r:'Daadee', e:'Grandmother (paternal)', tts:'દાદી', roman:'daadee' },
-    { g:'નાના', r:'Naanaa', e:'Grandfather (maternal)', tts:'નાના', roman:'naanaa' },
-    { g:'નાની', r:'Naanee', e:'Grandmother (maternal)', tts:'નાની', roman:'naanee' },
+  { id:'family', tier:1, name:'Family', desc:'Mom, dad, Ba, Dada and more', icon:'👨\u200d👩\u200d👧\u200d👦', words:[
+    { g:'મા',   r:'Maa',    e:'Mom',                   tts:'મા',   roman:'maa' },
+    { g:'બાપા', r:'Baapaa', e:'Dad',                   tts:'બાપા', roman:'baapaa' },
+    { g:'ભાઈ',  r:'Bhai',   e:'Brother',               tts:'ભાઈ',  roman:'bhai' },
+    { g:'બહેન', r:'Bahen',  e:'Sister',                tts:'બહેન', roman:'bahen' },
+    { g:'દાદા', r:'Dada',   e:'Dada (grandpa)',        tts:'દાદા', roman:'dada' },
+    { g:'બા',   r:'Ba',     e:'Ba (grandma)',          tts:'બા',   roman:'ba' },
+    { g:'કાકા', r:'Kaakaa', e:"Uncle (dad's brother)", tts:'કાકા', roman:'kaakaa' },
+    { g:'કાકી', r:'Kaakee', e:"Aunt (dad's sister)",   tts:'કાકી', roman:'kaakee' },
   ]},
-  { id:'numbers', name:'Numbers 1–10', desc:'Count to ten in Gujarati', icon:'🔢', words:[
+  { id:'numbers', tier:1, name:'Numbers 1-10', desc:'Count to ten in Gujarati', icon:'🔢', words:[
     { g:'એક',   r:'Ek',     e:'One',   tts:'એક',   roman:'ek' },
     { g:'બે',   r:'Be',     e:'Two',   tts:'બે',   roman:'be' },
     { g:'ત્રણ', r:'Tran',   e:'Three', tts:'ત્રણ', roman:'tran' },
@@ -337,27 +361,28 @@ const LESSONS = [
     { g:'નવ',   r:'Nav',    e:'Nine',  tts:'નવ',   roman:'nav' },
     { g:'દસ',   r:'Das',    e:'Ten',   tts:'દસ',   roman:'das' },
   ]},
-  { id:'colors', name:'Colors', desc:'Red, blue, green and more', icon:'🎨', words:[
-    { g:'લાલ',    r:'Laal',     e:'Red',    tts:'લાલ',    roman:'laal' },
-    { g:'વાદળી',  r:'Vaadlee',  e:'Blue',   tts:'વાદળી',  roman:'vaadlee' },
-    { g:'લીલો',   r:'Leelo',    e:'Green',  tts:'લીલો',   roman:'leelo' },
-    { g:'પીળો',   r:'Peelo',    e:'Yellow', tts:'પીળો',   roman:'peelo' },
-    { g:'સફેદ',   r:'Safed',    e:'White',  tts:'સફેદ',   roman:'safed' },
-    { g:'કાળો',   r:'Kaalo',    e:'Black',  tts:'કાળો',   roman:'kaalo' },
-    { g:'નારંગી', r:'Naarangee',e:'Orange', tts:'નારંગી', roman:'naarangee' },
-    { g:'ગુલાબી', r:'Gulaabee', e:'Pink',   tts:'ગુલાબી', roman:'gulaabee' },
+  { id:'colors', tier:1, name:'Colors', desc:'Red, blue, green and more', icon:'🎨', words:[
+    { g:'લાલ',    r:'Laal',      e:'Red',    tts:'લાલ',    roman:'laal' },
+    { g:'વાદળી',  r:'Vaadlee',   e:'Blue',   tts:'વાદળી',  roman:'vaadlee' },
+    { g:'લીલો',   r:'Leelo',     e:'Green',  tts:'લીલો',   roman:'leelo' },
+    { g:'પીળો',   r:'Peelo',     e:'Yellow', tts:'પીળો',   roman:'peelo' },
+    { g:'સફેદ',   r:'Safed',     e:'White',  tts:'સફેદ',   roman:'safed' },
+    { g:'કાળો',   r:'Kaalo',     e:'Black',  tts:'કાળો',   roman:'kaalo' },
+    { g:'નારંગી', r:'Naarangee', e:'Orange', tts:'નારંગી', roman:'naarangee' },
+    { g:'ગુલાબી', r:'Gulaabee',  e:'Pink',   tts:'ગુલાબી', roman:'gulaabee' },
   ]},
-  { id:'food', name:'Food & Drink', desc:'Water, tea, rice, roti, milk', icon:'🍛', words:[
-    { g:'પાણી', r:'Paanee', e:'Water',        tts:'પાણી', roman:'paanee' },
-    { g:'ભોજન', r:'Bhojan', e:'Food / Meal',  tts:'ભોજન', roman:'bhojan' },
-    { g:'ચા',   r:'Chaa',   e:'Tea',          tts:'ચા',   roman:'chaa' },
-    { g:'ભાત',  r:'Bhaat',  e:'Rice',         tts:'ભાત',  roman:'bhaat' },
-    { g:'રોટી', r:'Rotee',  e:'Roti / Bread', tts:'રોટી', roman:'rotee' },
-    { g:'દૂધ',  r:'Doodh',  e:'Milk',         tts:'દૂધ',  roman:'doodh' },
-    { g:'શાક',  r:'Shaak',  e:'Vegetables',   tts:'શાક',  roman:'shaak' },
-    { g:'દાળ',  r:'Daal',   e:'Lentils',      tts:'દાળ',  roman:'daal' },
+  { id:'food', tier:1, name:'Food & Drink', desc:'Water, tea, rice, roti, milk', icon:'🍛', words:[
+    { g:'પાણી',  r:'Paanee',  e:'Water',        tts:'પાણી',  roman:'paanee' },
+    { g:'ભોજન',  r:'Bhojan',  e:'Food / Meal',  tts:'ભોજન',  roman:'bhojan' },
+    { g:'ચા',    r:'Chaa',    e:'Tea',          tts:'ચા',    roman:'chaa' },
+    { g:'ભાત',   r:'Bhaat',   e:'Rice',         tts:'ભાત',   roman:'bhaat' },
+    { g:'રોટી',  r:'Rotee',   e:'Roti / Bread', tts:'રોટી',  roman:'rotee' },
+    { g:'દૂધ',   r:'Doodh',   e:'Milk',         tts:'દૂધ',   roman:'doodh' },
+    { g:'શાક',   r:'Shaak',   e:'Vegetables',   tts:'શાક',   roman:'shaak' },
+    { g:'દાળ',   r:'Daal',    e:'Lentils',      tts:'દાળ',   roman:'daal' },
+    { g:'ફળ',    r:'Fal',     e:'Fruit',        tts:'ફળ',    roman:'fal' },
   ]},
-  { id:'animals', name:'Animals', desc:'Dog, cat, cow, elephant and more', icon:'🐘', words:[
+  { id:'animals', tier:1, name:'Animals', desc:'Dog, cat, cow, elephant and more', icon:'🐘', words:[
     { g:'કૂતરો',  r:'Kootaro',  e:'Dog',      tts:'કૂતરો',  roman:'kootaro' },
     { g:'બિલાડી', r:'Bilaadee', e:'Cat',      tts:'બિલાડી', roman:'bilaadee' },
     { g:'ગાય',    r:'Gaay',     e:'Cow',      tts:'ગાય',    roman:'gaay' },
@@ -366,24 +391,152 @@ const LESSONS = [
     { g:'વાંદરો', r:'Vaandaro', e:'Monkey',   tts:'વાંદરો', roman:'vaandaro' },
     { g:'માછલી',  r:'Maachlee', e:'Fish',     tts:'માછલી',  roman:'maachlee' },
     { g:'પક્ષી',  r:'Pakshee',  e:'Bird',     tts:'પક્ષી',  roman:'pakshee' },
+    { g:'ઘોડો',   r:'Ghodo',    e:'Horse',    tts:'ઘોડો',   roman:'ghodo' },
+    { g:'બકરી',   r:'Bakree',   e:'Goat',     tts:'બકરી',   roman:'bakree' },
   ]},
-  { id:'body', name:'Body Parts', desc:'Head, eyes, hands, feet', icon:'🙌', words:[
-    { g:'માથું',  r:'Maathoon', e:'Head',    tts:'માથું',  roman:'maathoon' },
-    { g:'આંખ',   r:'Aankh',    e:'Eye',     tts:'આંખ',   roman:'aankh' },
-    { g:'નાક',   r:'Naak',     e:'Nose',    tts:'નાક',   roman:'naak' },
-    { g:'કાન',   r:'Kaan',     e:'Ear',     tts:'કાન',   roman:'kaan' },
-    { g:'મોઢું',  r:'Modhoon',  e:'Mouth',   tts:'મોઢું',  roman:'modhoon' },
-    { g:'હાથ',   r:'Haath',    e:'Hand',    tts:'હાથ',   roman:'haath' },
-    { g:'પગ',    r:'Pag',      e:'Foot/Leg',tts:'પગ',    roman:'pag' },
-    { g:'પેટ',   r:'Pet',      e:'Stomach', tts:'પેટ',   roman:'pet' },
+  { id:'body', tier:1, name:'Body Parts', desc:'Head, eyes, hands, feet', icon:'🙌', words:[
+    { g:'માથું', r:'Maathoon', e:'Head',     tts:'માથું', roman:'maathoon' },
+    { g:'આંખ',  r:'Aankh',    e:'Eye',      tts:'આંખ',  roman:'aankh' },
+    { g:'નાક',  r:'Naak',     e:'Nose',     tts:'નાક',  roman:'naak' },
+    { g:'કાન',  r:'Kaan',     e:'Ear',      tts:'કાન',  roman:'kaan' },
+    { g:'મોઢું', r:'Modhoon',  e:'Mouth',    tts:'મોઢું', roman:'modhoon' },
+    { g:'હાથ',  r:'Haath',    e:'Hand',     tts:'હાથ',  roman:'haath' },
+    { g:'પગ',   r:'Pag',      e:'Foot/Leg', tts:'પગ',   roman:'pag' },
+    { g:'પેટ',  r:'Pet',      e:'Stomach',  tts:'પેટ',  roman:'pet' },
   ]},
-  { id:'phrases', name:'Daily Phrases', desc:'Useful everyday sentences', icon:'💬', words:[
-    { g:'તમે કેમ છો?',  r:'Tame kem chho?',     e:'How are you?',      tts:'તમે કેમ છો?',  roman:'tame kem chho' },
-    { g:'હું સારો છું', r:'Hoon saaro chhoon',  e:"I'm fine (male)",   tts:'હું સારો છું', roman:'hoon saaro chhoon' },
-    { g:'હું સારી છું', r:'Hoon saaree chhoon', e:"I'm fine (female)", tts:'હું સારી છું', roman:'hoon saaree chhoon' },
-    { g:'મને ગમે છે',   r:'Mane game chhe',     e:'I like it',         tts:'મને ગમે છે',   roman:'mane game chhe' },
-    { g:'સારું',        r:'Saaroon',            e:'Good / Okay',       tts:'સારું',        roman:'saaroon' },
-    { g:'ભૂખ લાગી છે', r:'Bhookh laagee chhe', e:"I'm hungry",        tts:'ભૂખ લાગી છે', roman:'bhookh laagee chhe' },
+  { id:'emotions', tier:1, name:'Feelings', desc:'Happy, sad, hungry, tired', icon:'😊', words:[
+    { g:'ખુશ',     r:'Khush',      e:'Happy',    tts:'ખુશ',     roman:'khush' },
+    { g:'દુઃખી',   r:'Dukhee',     e:'Sad',      tts:'દુઃખી',   roman:'dukhee' },
+    { g:'ભૂખ્યો',  r:'Bhookhyo',   e:'Hungry',   tts:'ભૂખ્યો',  roman:'bhookhyo' },
+    { g:'તરસ્યો',  r:'Tarasyo',    e:'Thirsty',  tts:'તરસ્યો',  roman:'tarasyo' },
+    { g:'થાકેલો',  r:'Thaakelo',   e:'Tired',    tts:'થાકેલો',  roman:'thaakelo' },
+    { g:'ડરેલો',   r:'Darelo',     e:'Scared',   tts:'ડરેલો',   roman:'darelo' },
+    { g:'ગુસ્સો',  r:'Gusso',      e:'Angry',    tts:'ગુસ્સો',  roman:'gusso' },
+  ]},
+  { id:'clothes', tier:1, name:'Clothes', desc:'Shirt, pants, shoes and more', icon:'👕', words:[
+    { g:'શર્ટ',   r:'Shart',   e:'Shirt',   tts:'શર્ટ',   roman:'shart' },
+    { g:'પેન્ટ',  r:'Pent',    e:'Pants',   tts:'પેન્ટ',  roman:'pent' },
+    { g:'બૂટ',   r:'Boot',    e:'Shoes',   tts:'બૂટ',   roman:'boot' },
+    { g:'ટોપી',  r:'Topee',   e:'Hat',     tts:'ટોપી',  roman:'topee' },
+    { g:'ડ્રેસ',  r:'Dres',    e:'Dress',   tts:'ડ્રેસ',  roman:'dres' },
+    { g:'મોજા',  r:'Moja',    e:'Socks',   tts:'મોજા',  roman:'moja' },
+    { g:'સ્વેટર', r:'Swetar',  e:'Sweater', tts:'સ્વેટર', roman:'swetar' },
+  ]},
+  { id:'home', tier:1, name:'Around the House', desc:'Rooms, furniture, everyday objects', icon:'🏠', words:[
+    { g:'ઘર',     r:'Ghar',     e:'Home/House', tts:'ઘર',     roman:'ghar' },
+    { g:'રસોડું',  r:'Rasodoon', e:'Kitchen',    tts:'રસોડું',  roman:'rasodoon' },
+    { g:'બાથરૂમ', r:'Baathroom',e:'Bathroom',   tts:'બાથરૂમ', roman:'baathroom' },
+    { g:'દરવાજો', r:'Darvaajo', e:'Door',       tts:'દરવાજો', roman:'darvaajo' },
+    { g:'બારી',   r:'Baaree',   e:'Window',     tts:'બારી',   roman:'baaree' },
+    { g:'ટેબલ',   r:'Tebal',    e:'Table',      tts:'ટેબલ',   roman:'tebal' },
+    { g:'ખુરશી',  r:'Khurshee', e:'Chair',      tts:'ખુરશી',  roman:'khurshee' },
+    { g:'પલંગ',   r:'Palang',   e:'Bed',        tts:'પલંગ',   roman:'palang' },
+  ]},
+  { id:'verbs', tier:1, name:'Action Verbs', desc:'Eat, sleep, run, play — act them out!', icon:'🏃', words:[
+    { g:'ખા',  r:'Khaa', e:'Eat',   tts:'ખાઓ', roman:'khaa', tpr:'Pretend to eat!' },
+    { g:'પી',  r:'Pee',  e:'Drink', tts:'પીઓ', roman:'pee',  tpr:'Pretend to drink!' },
+    { g:'સૂ',  r:'Soo',  e:'Sleep', tts:'સૂઓ', roman:'soo',  tpr:'Pretend to sleep!' },
+    { g:'દોડ', r:'Dod',  e:'Run',   tts:'દોડો', roman:'dod', tpr:'Run on the spot!' },
+    { g:'બેસ', r:'Bes',  e:'Sit',   tts:'બેસો', roman:'bes', tpr:'Sit down!' },
+    { g:'ઉઠ',  r:'Uth',  e:'Stand', tts:'ઉઠો', roman:'uth',  tpr:'Stand up!' },
+    { g:'આવ',  r:'Aav',  e:'Come',  tts:'આવો', roman:'aav',  tpr:'Step forward!' },
+    { g:'જા',  r:'Jaa',  e:'Go',    tts:'જાઓ', roman:'jaa',  tpr:'Walk away!' },
+    { g:'રમ',  r:'Ram',  e:'Play',  tts:'રમો', roman:'ram',  tpr:'Clap your hands!' },
+    { g:'જો',  r:'Jo',   e:'Look',  tts:'જુઓ', roman:'jo',   tpr:'Point and look around!' },
+  ]},
+  { id:'days', tier:1, name:'Days of the Week', desc:'Monday to Sunday, today, tomorrow', icon:'📅', words:[
+    { g:'આજ',      r:'Aaj',        e:'Today',     tts:'આજ',      roman:'aaj' },
+    { g:'કાલ',     r:'Kaal',       e:'Tomorrow',  tts:'કાલ',     roman:'kaal' },
+    { g:'ગઈ કાલ',  r:'Gai kaal',   e:'Yesterday', tts:'ગઈ કાલ',  roman:'gai kaal' },
+    { g:'સોમવાર',  r:'Somvaar',    e:'Monday',    tts:'સોમવાર',  roman:'somvaar' },
+    { g:'મંગળવાર', r:'Mangalvaar', e:'Tuesday',   tts:'મંગળવાર', roman:'mangalvaar' },
+    { g:'બુધવાર',  r:'Budhvaar',   e:'Wednesday', tts:'બુધવાર',  roman:'budhvaar' },
+    { g:'ગુરુવાર',  r:'Guruvaar',   e:'Thursday',  tts:'ગુરુવાર',  roman:'guruvaar' },
+    { g:'શુક્રવાર', r:'Shukvaar',   e:'Friday',    tts:'શુક્રવાર', roman:'shukvaar' },
+    { g:'શનિવાર',  r:'Shanivaar',  e:'Saturday',  tts:'શનિવાર',  roman:'shanivaar' },
+    { g:'રવિવાર',  r:'Ravivaar',   e:'Sunday',    tts:'રવિવાર',  roman:'ravivaar' },
+  ]},
+  { id:'weather', tier:1, name:'Weather', desc:'Sun, rain, hot, cold', icon:'☀️', words:[
+    { g:'ગરમ',   r:'Garam',   e:'Hot',         tts:'ગરમ',   roman:'garam' },
+    { g:'ઠંડુ',  r:'Thandoo', e:'Cold',        tts:'ઠંડુ',  roman:'thandoo' },
+    { g:'વરસાદ', r:'Varsaad', e:'Rain',        tts:'વરસાદ', roman:'varsaad' },
+    { g:'તડકો',  r:'Tadako',  e:'Sunshine',    tts:'તડકો',  roman:'tadako' },
+    { g:'પવન',   r:'Pavan',   e:'Wind',        tts:'પવન',   roman:'pavan' },
+    { g:'વાદળ',  r:'Vaadal',  e:'Cloud',       tts:'વાદળ',  roman:'vaadal' },
+    { g:'બરફ',   r:'Baraf',   e:'Snow',        tts:'બરફ',   roman:'baraf' },
+  ]},
+  { id:'daily_phrases', tier:2, name:'Daily Phrases', desc:'Useful everyday sentences', icon:'💬', words:[
+    { g:'તમે કેમ છો?',   r:'Tame kem chho?',      e:'How are you?',    tts:'તમે કેમ છો?',   roman:'tame kem chho' },
+    { g:'હું સારો છું',  r:'Hoon saaro chhoon',   e:"I'm fine (m)",    tts:'હું સારો છું',  roman:'hoon saaro chhoon' },
+    { g:'હું સારી છું',  r:'Hoon saaree chhoon',  e:"I'm fine (f)",    tts:'હું સારી છું',  roman:'hoon saaree chhoon' },
+    { g:'મને ગમે છે',    r:'Mane game chhe',      e:'I like it',       tts:'મને ગમે છે',    roman:'mane game chhe' },
+    { g:'સારું',         r:'Saaroon',             e:'Good / Okay',     tts:'સારું',         roman:'saaroon' },
+    { g:'ભૂખ લાગી છે',  r:'Bhookh laagee chhe',  e:"I'm hungry",      tts:'ભૂખ લાગી છે',  roman:'bhookh laagee chhe' },
+    { g:'પાણી આપો',     r:'Paanee aapo',         e:'Give me water',   tts:'પાણી આપો',     roman:'paanee aapo' },
+    { g:'મને નથી ખબર',  r:'Mane nathee khabar',  e:"I don't know",    tts:'મને નથી ખબર',  roman:'mane nathee khabar' },
+    { g:'ધીરે બોલો',    r:'Dheere bolo',         e:'Speak slowly',    tts:'ધીરે બોલો',    roman:'dheere bolo' },
+    { g:'ફરી કહો',      r:'Faree kaho',          e:'Say it again',    tts:'ફરી કહો',      roman:'faree kaho' },
+  ]},
+  { id:'i_want', tier:2, name:'I Want...', desc:'Asking for things you need', icon:'🙋', words:[
+    { g:'મારે પાણી જોઈએ',    r:'Maare paanee joie',       e:'I want water',   tts:'મારે પાણી જોઈએ',    roman:'maare paanee joie' },
+    { g:'મારે ભોજન જોઈએ',   r:'Maare bhojan joie',       e:'I want food',    tts:'મારે ભોજન જોઈએ',   roman:'maare bhojan joie' },
+    { g:'મારે રમવું છે',     r:'Maare ramvoon chhe',      e:'I want to play', tts:'મારે રમવું છે',     roman:'maare ramvoon chhe' },
+    { g:'મારે જવું છે',      r:'Maare javoon chhe',       e:'I want to go',   tts:'મારે જવું છે',      roman:'maare javoon chhe' },
+    { g:'મારે દૂધ જોઈએ',    r:'Maare doodh joie',        e:'I want milk',    tts:'મારે દૂધ જોઈએ',    roman:'maare doodh joie' },
+    { g:'મને ભૂખ લાગી',     r:'Mane bhookh laagee',      e:'I am hungry',    tts:'મને ભૂખ લાગી',     roman:'mane bhookh laagee' },
+    { g:'મને ઠંડી લાગે છે',  r:'Mane thandee laage chhe', e:'I feel cold',    tts:'મને ઠંડી લાગે છે',  roman:'mane thandee laage chhe' },
+    { g:'મારે ઊંઘ આવે છે',  r:'Maare oongh aave chhe',   e:'I am sleepy',    tts:'મારે ઊંઘ આવે છે',  roman:'maare oongh aave chhe' },
+  ]},
+  { id:'this_is', tier:2, name:'This is a...', desc:'Describing things around you', icon:'👆', words:[
+    { g:'આ શું છે?',    r:'Aa shoon chhe?',   e:'What is this?',  tts:'આ શું છે?',    roman:'aa shoon chhe' },
+    { g:'આ સારું છે',  r:'Aa saaroon chhe',  e:'This is good',   tts:'આ સારું છે',  roman:'aa saaroon chhe' },
+    { g:'આ મોટું છે',  r:'Aa motoon chhe',   e:'This is big',    tts:'આ મોટું છે',  roman:'aa motoon chhe' },
+    { g:'આ નાનું છે',  r:'Aa naanoon chhe',  e:'This is small',  tts:'આ નાનું છે',  roman:'aa naanoon chhe' },
+    { g:'આ મારું છે',  r:'Aa maaroon chhe',  e:'This is mine',   tts:'આ મારું છે',  roman:'aa maaroon chhe' },
+    { g:'આ ગરમ છે',   r:'Aa garam chhe',    e:'This is hot',    tts:'આ ગરમ છે',   roman:'aa garam chhe' },
+    { g:'આ ઠંડું છે',  r:'Aa thandoon chhe', e:'This is cold',   tts:'આ ઠંડું છે',  roman:'aa thandoon chhe' },
+    { g:'આ સુંદર છે',  r:'Aa sundar chhe',   e:'This is pretty', tts:'આ સુંદર છે',  roman:'aa sundar chhe' },
+  ]},
+  { id:'adjectives', tier:2, name:'Describing Words', desc:'Big, small, fast, slow, beautiful', icon:'✨', words:[
+    { g:'મોટું',    r:'Motoon',    e:'Big',       tts:'મોટું',    roman:'motoon' },
+    { g:'નાનું',    r:'Naanoon',   e:'Small',     tts:'નાનું',    roman:'naanoon' },
+    { g:'ઝડપી',    r:'Zadapee',   e:'Fast',      tts:'ઝડપી',    roman:'zadapee' },
+    { g:'ધીમું',    r:'Dheemoon',  e:'Slow',      tts:'ધીમું',    roman:'dheemoon' },
+    { g:'સુંદર',    r:'Sundar',    e:'Beautiful', tts:'સુંદર',    roman:'sundar' },
+    { g:'સ્વાદિષ્ટ', r:'Svaadisht', e:'Delicious', tts:'સ્વાદિષ્ટ', roman:'svaadisht' },
+    { g:'ભારે',    r:'Bhaare',    e:'Heavy',     tts:'ભારે',    roman:'bhaare' },
+    { g:'નવું',     r:'Navoon',    e:'New',       tts:'નવું',     roman:'navoon' },
+    { g:'જૂનું',    r:'Joonoon',   e:'Old',       tts:'જૂનું',    roman:'joonoon' },
+  ]},
+  { id:'ba_dada_call', tier:3, name:'Call Ba & Dada!', desc:'A script for your next video call', icon:'📞', words:[
+    { g:'હેલ્લો, દાદા!',         r:'Hello, Dada!',               e:'Hello, Dada!',          tts:'હેલ્લો, દાદા!',         roman:'hello dada' },
+    { g:'હેલ્લો, બા!',           r:'Hello, Ba!',                 e:'Hello, Ba!',            tts:'હેલ્લો, બા!',           roman:'hello ba' },
+    { g:'તમે કેમ છો, દાદા?',    r:'Tame kem chho, Dada?',       e:'How are you, Dada?',    tts:'તમે કેમ છો, દાદા?',    roman:'tame kem chho dada' },
+    { g:'હું સારો/સારી છું',     r:'Hoon saaro/saaree chhoon',   e:"I'm doing well",        tts:'હું સારો છું',          roman:'hoon saaro chhoon' },
+    { g:'હું ગુજરાતી શીખું છું', r:'Hoon gujarati seekhoon chhoon',e:"I'm learning Gujarati",tts:'હું ગુજરાતી શીખું છું', roman:'hoon gujarati seekhoon chhoon' },
+    { g:'મને ગુજરાતી ગમે છે',   r:'Mane gujarati game chhe',    e:'I like Gujarati',       tts:'મને ગુજરાતી ગમે છે',   roman:'mane gujarati game chhe' },
+    { g:'હું તમને ચાહું છું',    r:'Hoon tamne chaahoon chhoon', e:'I love you',            tts:'હું તમને ચાહું છું',    roman:'hoon tamne chaahoon chhoon' },
+    { g:'આભાર, બા!',            r:'Aabhar, Ba!',                e:'Thank you, Ba!',        tts:'આભાર, બા!',            roman:'aabhar ba' },
+    { g:'ફરી મળીશું!',           r:'Faree maleeshoon!',          e:'See you again!',        tts:'ફરી મળીશું!',           roman:'faree maleeshoon' },
+  ]},
+  { id:'at_dinner', tier:3, name:'Dinner Table', desc:'Real phrases for family meals', icon:'🍽️', words:[
+    { g:'જમવા આવો!',           r:'Jamvaa aavo!',            e:'Come eat!',              tts:'જમવા આવો!',           roman:'jamvaa aavo' },
+    { g:'ભોજન તૈયાર છે',       r:'Bhojan taiyaar chhe',     e:'Food is ready',          tts:'ભોજન તૈયાર છે',       roman:'bhojan taiyaar chhe' },
+    { g:'મારે ભાત જોઈએ',       r:'Maare bhaat joie',        e:'I want rice',            tts:'મારે ભાત જોઈએ',       roman:'maare bhaat joie' },
+    { g:'આ ખૂબ સ્વાદિષ્ટ છે',  r:'Aa khoob svaadisht chhe', e:'This is very delicious', tts:'આ ખૂબ સ્વાદિષ્ટ છે',  roman:'aa khoob svaadisht chhe' },
+    { g:'બીજું આપો',            r:'Beejoon aapo',            e:'Give me more',           tts:'બીજું આપો',            roman:'beejoon aapo' },
+    { g:'પેટ ભરાઈ ગયું',        r:'Pet bharai gayoon',       e:"I'm full",               tts:'પેટ ભરાઈ ગયું',        roman:'pet bharai gayoon' },
+    { g:'આ ખૂબ ગરમ છે',        r:'Aa khoob garam chhe',     e:'This is very hot',       tts:'આ ખૂબ ગરમ છે',        roman:'aa khoob garam chhe' },
+    { g:'પાણી આપશો?',          r:'Paanee aapsho?',          e:'Can I have water?',      tts:'પાણી આપશો?',          roman:'paanee aapsho' },
+  ]},
+  { id:'morning_routine', tier:3, name:'Morning Routine', desc:'Getting ready for school in Gujarati', icon:'🌅', words:[
+    { g:'ઉઠો, ઉઠો!',          r:'Utho, utho!',           e:'Wake up!',              tts:'ઉઠો, ઉઠો!',          roman:'utho utho' },
+    { g:'દાંત સાફ કરો',        r:'Daant saaf karo',       e:'Brush your teeth',      tts:'દાંત સાફ કરો',        roman:'daant saaf karo' },
+    { g:'નાહવા જાઓ',           r:'Naahvaa jao',           e:'Go take a bath',        tts:'નાહવા જાઓ',           roman:'naahvaa jao' },
+    { g:'કપડાં પહેરો',         r:'Kapdaan pahero',        e:'Get dressed',           tts:'કપડાં પહેરો',         roman:'kapdaan pahero' },
+    { g:'નાસ્તો ખાઓ',          r:'Naasto khao',           e:'Eat breakfast',         tts:'નાસ્તો ખાઓ',          roman:'naasto khao' },
+    { g:'ચાલો, જઈએ!',          r:'Chaalo, jaie!',         e:"Let's go!",             tts:'ચાલો, જઈએ!',          roman:'chaalo jaie' },
+    { g:'શાળાએ જવાનો સમય',    r:'Shaalae javano samay',  e:'Time for school',       tts:'શાળાએ જવાનો સમય',    roman:'shaalae javano samay' },
   ]},
 ];
 
@@ -548,30 +701,97 @@ function buildLeaderboardHTML(containerId, activeId) {
 
 /* ══════════════════════════════════════════
    STATE
+   PINs → localStorage only (never Firestore)
+   Progress → Firestore (source of truth) + localStorage cache
 ══════════════════════════════════════════ */
 let allData = {}, currentProfileId = null;
 const audioB64Cache = {};
 
-function loadData() { try { allData = JSON.parse(localStorage.getItem('guj_v4')||'{}'); } catch(e) { allData={}; } }
+// PIN storage is local-only — keeps PINs safe across Firestore syncs
+function savePins() {
+  const pins = {};
+  PROFILES.forEach(p => { pins[p.id] = (allData[p.id] && allData[p.id].pin) || null; });
+  try { localStorage.setItem('guj_pins', JSON.stringify(pins)); } catch(e) {}
+}
+function loadPins() {
+  try { return JSON.parse(localStorage.getItem('guj_pins') || '{}'); } catch(e) { return {}; }
+}
 
-function saveData() {
-  // Always write to localStorage immediately as offline cache
-  try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
-  // Write each profile to Firestore — retry once on failure
+function loadData() {
+  // Load progress cache
+  try { allData = JSON.parse(localStorage.getItem('guj_v4') || '{}'); } catch(e) { allData = {}; }
+  // Restore PINs into allData (PINs never go to Firestore)
+  const pins = loadPins();
+  PROFILES.forEach(p => {
+    if (!allData[p.id]) allData[p.id] = {};
+    allData[p.id].pin = pins[p.id] || null;
+  });
+  // Migrate old lesson IDs from previous app versions
   PROFILES.forEach(p => {
     const d = allData[p.id];
-    if (!d) return;
-    const payload = JSON.parse(JSON.stringify(d)); // deep clone to avoid mutation issues
-    db.collection('profiles').doc(p.id).set(payload)
+    if (!d || !d.completed) return;
+    // 'phrases' was renamed to 'daily_phrases'
+    if (d.completed.includes('phrases') && !d.completed.includes('daily_phrases')) {
+      d.completed.push('daily_phrases');
+    }
+  });
+}
+
+function saveData() {
+  // Save PINs separately to localStorage
+  savePins();
+  // Save progress to localStorage cache (strip PIN before storing)
+  const forStorage = {};
+  PROFILES.forEach(p => {
+    if (!allData[p.id]) return;
+    const { pin, ...progress } = allData[p.id];
+    forStorage[p.id] = progress;
+  });
+  try { localStorage.setItem('guj_v4', JSON.stringify(forStorage)); } catch(e) {}
+  // Write progress (no PIN) to Firestore per profile
+  // Save if there's ANY meaningful data — xp, completed lessons, streak, or activity
+  PROFILES.forEach(p => {
+    if (!allData[p.id]) return;
+    const { pin, ...progress } = allData[p.id];
+    const hasData = (progress.xp > 0) ||
+                    (progress.completed && progress.completed.length > 0) ||
+                    (progress.streak > 0) ||
+                    (progress.activityLog && progress.activityLog.length > 0);
+    if (!hasData) return;
+    db.collection('profiles').doc(p.id).set(progress)
       .catch(err => {
         console.warn(`Firestore write failed for ${p.id}, retrying...`, err);
-        // Retry once after 2s
         setTimeout(() => {
-          db.collection('profiles').doc(p.id).set(payload)
+          db.collection('profiles').doc(p.id).set(progress)
             .catch(e2 => console.error(`Firestore retry failed for ${p.id}:`, e2));
         }, 2000);
       });
   });
+}
+
+// Sync a single profile from Firestore — called after PIN entry so home screen is always fresh
+async function syncProfileFromFirestore(profileId) {
+  try {
+    const doc = await db.collection('profiles').doc(profileId).get();
+    if (doc.exists) {
+      const remote = doc.data();
+      const pin = allData[profileId] ? allData[profileId].pin : null;
+      // Migrate old lesson ids
+      if (remote.completed && remote.completed.includes('phrases') && !remote.completed.includes('daily_phrases')) {
+        remote.completed.push('daily_phrases');
+      }
+      allData[profileId] = { ...remote, pin };
+      const forStorage = {};
+      PROFILES.forEach(p => {
+        if (!allData[p.id]) return;
+        const { pin: _pin, ...progress } = allData[p.id];
+        forStorage[p.id] = progress;
+      });
+      try { localStorage.setItem('guj_v4', JSON.stringify(forStorage)); } catch(e) {}
+    }
+  } catch(err) {
+    console.warn('Profile sync failed, using cache:', err);
+  }
 }
 
 function getProfileData(id) {
@@ -744,11 +964,9 @@ function buildLogin() {
   PROFILES.forEach(p => {
     const d = getProfileData(p.id);
     const due = getDueCount(p.id);
-    const streakAt3 = d.streak > 0 && d.streak % 3 === 0;
-    // Streak risk: had a streak but didn't play today or yesterday
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now()-86400000).toDateString();
-    const atRisk = d.streak > 0 && d.lastDate !== today && d.lastDate !== yesterday;
+    const todayStr = todayISO();
+    const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const atRisk = d.streak > 0 && d.lastDate !== todayStr && d.lastDate !== yesterdayStr;
     const card = document.createElement('div');
     card.className = 'profile-card';
     card.innerHTML = `
@@ -798,10 +1016,14 @@ function handlePin() {
   const d = getProfileData(currentProfileId);
   if (pinMode==='setup1') { pinFirst=pinBuffer; pinBuffer=''; pinMode='setup2'; renderPin('Confirm your PIN','Step 2 of 2',false); }
   else if (pinMode==='setup2') {
-    if (pinBuffer===pinFirst) { d.pin=pinBuffer; saveData(); enterHome(); }
+    if (pinBuffer===pinFirst) { d.pin=pinBuffer; savePins(); saveData(); enterHome(); }
     else { pinBuffer=''; pinFirst=''; pinMode='setup1'; renderPin('Choose a 4-digit PIN','Step 1 of 2',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent="PINs didn't match — try again"; },50); }
   } else {
-    if (pinBuffer===d.pin) enterHome();
+    if (pinBuffer===d.pin) {
+      // Sync this profile's progress from Firestore before entering home
+      // Show a brief syncing state on the PIN dots
+      syncProfileFromFirestore(currentProfileId).then(() => enterHome());
+    }
     else { pinBuffer=''; renderPin('Enter your PIN','',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent='Wrong PIN — try again'; },50); }
   }
 }
@@ -811,13 +1033,13 @@ function handlePin() {
 ══════════════════════════════════════════ */
 function enterHome() {
   const p = meta(currentProfileId), d = currentData();
-  const today = new Date().toDateString(), yesterday = new Date(Date.now()-86400000).toDateString();
+  const todayStr = todayISO(); // use ISO consistently everywhere
+  const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
   const prevStreak = d.streak;
-  if (d.lastDate !== today) {
-    d.streak = (d.lastDate===yesterday) ? d.streak+1 : 1;
-    d.lastDate = today;
-    const iso = todayISO();
-    if (!d.activityLog.includes(iso)) d.activityLog.push(iso);
+  if (d.lastDate !== todayStr) {
+    d.streak = (d.lastDate === yesterdayStr) ? d.streak+1 : 1;
+    d.lastDate = todayStr;
+    if (!d.activityLog.includes(todayStr)) d.activityLog.push(todayStr);
     saveData();
   }
 
@@ -839,11 +1061,20 @@ function enterHome() {
 
 function updateHomeStats() {
   const d = currentData();
-  document.getElementById('statXP').textContent = d.xp;
-  document.getElementById('statStreak').textContent = d.streak;
-  document.getElementById('statWords').textContent = d.completed.reduce((a,id) => {
+  const xp = d.xp || 0;
+  const lv = getLevel(xp);
+  const nextLv = getNextLevel(xp);
+  document.getElementById('statXP').textContent = xp;
+  document.getElementById('statStreak').textContent = d.streak || 0;
+  document.getElementById('statWords').textContent = (d.completed||[]).reduce((a,id) => {
     const l = LESSONS.find(x=>x.id===id); return a+(l?l.words.length:0);
   }, 0);
+  // Update level badge
+  const lvEl = document.getElementById('levelBadge');
+  if (lvEl) {
+    lvEl.textContent = `${lv.icon} ${lv.name}`;
+    if (nextLv) lvEl.title = `${xp - lv.min} / ${nextLv.min - lv.min} XP to ${nextLv.name}`;
+  }
 }
 
 function buildReviewSection() {
@@ -865,42 +1096,86 @@ function updateLessons() {
   const d = currentData();
   const list = document.getElementById('lessonList');
   list.innerHTML = '';
-  LESSONS.forEach((lesson, i) => {
-    const done = d.completed.includes(lesson.id);
-    const locked = i>0 && !d.completed.includes(LESSONS[i-1].id);
-    const row = document.createElement('div');
-    row.className = 'lesson-row'+(locked?' locked':'');
-    row.innerHTML = `<div class="l-icon">${lesson.icon}</div><div class="l-info"><div class="l-name">${lesson.name}</div><div class="l-desc">${lesson.desc}</div></div><div class="l-badge ${done?'done':''}">${done?'✓ Done':locked?'🔒':'Start →'}</div>`;
-    if (!locked) row.onclick = () => startLesson(lesson);
-    list.appendChild(row);
+  const tiers = [
+    { num:1, label:'Tier 1 — Foundation', color:'#1D9E75' },
+    { num:2, label:'Tier 2 — Phrases & Patterns', color:'#7F77DD' },
+    { num:3, label:'Tier 3 — Conversations', color:'#D4537E' },
+  ];
+  tiers.forEach(tier => {
+    const tierLessons = LESSONS.filter(l => l.tier === tier.num);
+    if (!tierLessons.length) return;
+    // Tier header
+    const header = document.createElement('div');
+    header.style.cssText = `font-size:11px;font-weight:700;color:${tier.color};text-transform:uppercase;letter-spacing:0.06em;margin:0.75rem 0 6px;padding-left:2px;`;
+    header.textContent = tier.label;
+    list.appendChild(header);
+    tierLessons.forEach(lesson => {
+      const globalIdx = LESSONS.indexOf(lesson);
+      const done = (d.completed||[]).includes(lesson.id);
+      // Tier 1 unlocks sequentially; Tier 2 unlocks after all Tier 1 done; Tier 3 after all Tier 2
+      let locked = false;
+      if (tier.num === 1) {
+        locked = globalIdx > 0 && !(d.completed||[]).includes(LESSONS[globalIdx-1].id);
+      } else if (tier.num === 2) {
+        const tier1 = LESSONS.filter(l=>l.tier===1);
+        const tier1Done = tier1.every(l=>(d.completed||[]).includes(l.id));
+        const tier2Lessons = LESSONS.filter(l=>l.tier===2);
+        const idxInTier = tier2Lessons.indexOf(lesson);
+        locked = !tier1Done || (idxInTier > 0 && !(d.completed||[]).includes(tier2Lessons[idxInTier-1].id));
+      } else if (tier.num === 3) {
+        const tier2 = LESSONS.filter(l=>l.tier===2);
+        const tier2Done = tier2.every(l=>(d.completed||[]).includes(l.id));
+        const tier3Lessons = LESSONS.filter(l=>l.tier===3);
+        const idxInTier = tier3Lessons.indexOf(lesson);
+        locked = !tier2Done || (idxInTier > 0 && !(d.completed||[]).includes(tier3Lessons[idxInTier-1].id));
+      }
+      const hasTpr = lesson.words.some(w=>w.tpr);
+      const row = document.createElement('div');
+      row.className = 'lesson-row'+(locked?' locked':'');
+      row.innerHTML = `
+        <div class="l-icon">${lesson.icon}</div>
+        <div class="l-info">
+          <div class="l-name">${lesson.name}${hasTpr?' <span style="font-size:10px;background:#FFF5F0;color:#993C1D;padding:2px 6px;border-radius:99px;font-weight:600;vertical-align:middle">🏃 TPR</span>':''}</div>
+          <div class="l-desc">${lesson.desc}</div>
+        </div>
+        <div class="l-badge ${done?'done':''}">${done?'✓ Done':locked?'🔒':'Start →'}</div>`;
+      if (!locked) row.onclick = () => startLesson(lesson);
+      list.appendChild(row);
+    });
   });
 }
 
-function logout() { currentProfileId=null; buildLogin(); showScreen('loginScreen'); }
-function goHome() { updateHomeStats(); buildReviewSection(); updateLessons(); showScreen('homeScreen'); }
+function stopAudio() {
+  if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime=0; } catch(e){} currentAudio=null; }
+  currentFetchId++; // cancel any in-flight fetch
+}
+
+function logout() { stopAudio(); currentProfileId=null; buildLogin(); showScreen('loginScreen'); }
+function goHome() { stopAudio(); updateHomeStats(); buildReviewSection(); updateLessons(); showScreen('homeScreen'); }
 
 /* ══════════════════════════════════════════
    AUDIO
+   Key design:
+   - audioB64Cache: never re-fetches same text
+   - currentAudio: stopped before each new play
+   - fetchId: cancels stale fetches only (not stale re-enables)
+   - btn disabled only while fetching, re-enabled as soon as audio starts playing
 ══════════════════════════════════════════ */
 let currentAudio = null;
-let speakCallId = 0; // increments each call — stale callbacks self-cancel
+let currentFetchId = 0; // only used to cancel in-flight fetches, not to guard re-enable
 
 async function speakWord(ttsText, btnEl) {
-  // Cancel any previous in-flight call
-  speakCallId++;
-  const myCallId = speakCallId;
-
-  // Stop any playing audio
-  if (currentAudio) { try { currentAudio.pause(); } catch(e){} currentAudio = null; }
-
-  // Disable button (but never change its text)
-  if (btnEl) btnEl.disabled = true;
-
-  // Re-enable only if this call is still the current one and button still in DOM
-  function reEnable() {
-    if (myCallId !== speakCallId) return; // stale call — do nothing
-    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+  // Stop whatever is playing right now
+  if (currentAudio) {
+    try { currentAudio.pause(); currentAudio.currentTime = 0; } catch(e){}
+    currentAudio = null;
   }
+
+  // Grab a fetch token — if a newer call arrives while we're fetching, we bail
+  currentFetchId++;
+  const myFetchId = currentFetchId;
+
+  if (btnEl) btnEl.disabled = true;
 
   try {
     let b64 = audioB64Cache[ttsText];
@@ -921,22 +1196,29 @@ async function speakWord(ttsText, btnEl) {
       audioB64Cache[ttsText] = b64;
     }
 
-    // If a newer call has started while we were fetching, bail out
-    if (myCallId !== speakCallId) return;
-    // If button left the DOM, bail out
+    // If a newer fetch started while we were waiting, silently bail
+    if (myFetchId !== currentFetchId) return;
+    // If button was removed from DOM (card changed), silently bail
     if (btnEl && !document.contains(btnEl)) return;
 
     const audio = new Audio('data:audio/mp3;base64,' + b64);
     currentAudio = audio;
-    audio.onended = () => { currentAudio = null; reEnable(); };
-    audio.onerror = () => { currentAudio = null; reEnable(); };
-    const p = audio.play();
-    if (p) p.catch(() => reEnable());
-    // Hard failsafe — always re-enable after 5s no matter what
-    setTimeout(reEnable, 5000);
+
+    // Re-enable button immediately when audio starts — don't wait for onended
+    // This is the key fix: button is usable again as soon as sound starts
+    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+
+    audio.onended = () => { if (currentAudio === audio) currentAudio = null; };
+    audio.onerror = () => { if (currentAudio === audio) currentAudio = null; };
+
+    const playPromise = audio.play();
+    if (playPromise) playPromise.catch(err => {
+      // Autoplay blocked — re-enable button so user can tap manually
+      if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+    });
 
   } catch(err) {
-    reEnable();
+    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
     console.error('TTS error:', err.message);
     alert('Audio error: ' + err.message);
   }
@@ -1025,20 +1307,37 @@ function renderQ() {
 
 function renderListen(card, q) {
   const w = q.word;
+  const hasTpr = !!w.tpr;
   card.innerHTML = `
-    <div class="q-type">${isReview?'Review: ':''}Listen &amp; Repeat</div>
+    <div class="q-type">${isReview?'Review: ':''}${hasTpr?'Listen, Act & Repeat':'Listen &amp; Repeat'}</div>
     <div class="guj-big">${w.g}</div>
     <div class="roman">${w.r}</div>
     <div class="english">${w.e}</div>
+    ${hasTpr ? `<div style="background:#FFF5F0;border:1.5px solid #F09595;border-radius:12px;padding:12px 14px;text-align:center;margin-bottom:10px;font-size:15px;font-weight:600;color:#993C1D;">🏃 ${w.tpr}</div>` : ''}
     <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}">🔊 Hear it</button>
     <div class="mic-section">
-      <button class="mic-btn" id="micBtn" data-roman="${encodeURIComponent(w.roman)}">🎤 ${isMobile() ? 'Tap to say it' : 'Now say it out loud'}</button>
+      <button class="mic-btn" id="micBtn">🎤 ${isMobile() ? 'Tap to say it' : 'Now say it out loud'}</button>
       <div class="pronun-result" id="pronunResult"></div>
       <div class="mic-required-note" id="micNote">You must say it before continuing</div>
     </div>`;
-  document.getElementById('listenBtn').addEventListener('click', function() { speakWord(decodeURIComponent(this.dataset.tts),this); });
-  document.getElementById('micBtn').addEventListener('click', function() { doRecord(decodeURIComponent(this.dataset.roman), q.word); });
+  // Use onclick (not addEventListener) so reassignment in doRecord doesn't stack
+  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
+  document.getElementById('micBtn').onclick = function() { doRecord(w.roman, w); };
+  // Auto-play
   setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
+  // Auto-show Continue after 2.8s but record word as 'seen' so SR doesn't get stuck
+  setTimeout(() => {
+    const nb = document.getElementById('nextBtn');
+    if (nb && nb.className === 'next-btn') {
+      // User hasn't attempted mic yet — record as neutral (not correct, not wrong)
+      // so word enters SR cycle and doesn't stay permanently 'unseen'
+      const sr = getSRData(currentProfileId);
+      if (!sr[w.g]) {
+        recordWordResult(currentProfileId, w.g, false);
+      }
+      nb.className = 'next-btn show';
+    }
+  }, 2800);
 }
 
 function isMobileSafari() {
@@ -1052,12 +1351,10 @@ function doRecord(expectedRoman, word) {
   const micBtn=document.getElementById('micBtn'), result=document.getElementById('pronunResult'), note=document.getElementById('micNote');
   const SR = getSR();
 
-  // iOS Chrome doesn't support SpeechRecognition — Safari does but needs explicit user gesture
-  // If no SR available at all, skip gracefully
   if (!SR) {
     result.className='pronun-result retry show';
     result.innerHTML=`🎤 Speech recognition isn't available in this browser. Try Safari on iPhone or Chrome on desktop.<br><small>Tap Continue to keep going.</small>`;
-    note.style.display='none';
+    if (note) note.style.display='none';
     document.getElementById('nextBtn').className='next-btn show';
     return;
   }
@@ -1066,12 +1363,11 @@ function doRecord(expectedRoman, word) {
   try { rec = new SR(); } catch(e) {
     result.className='pronun-result retry show';
     result.innerHTML='🎤 Could not start mic. Tap Continue to keep going.';
-    note.style.display='none';
+    if (note) note.style.display='none';
     document.getElementById('nextBtn').className='next-btn show';
     return;
   }
 
-  // On iOS Safari, lang must be set before start and interimResults must be false
   rec.lang = 'gu-IN';
   rec.continuous = false;
   rec.interimResults = false;
@@ -1080,8 +1376,9 @@ function doRecord(expectedRoman, word) {
   micBtn.className='mic-btn recording';
   micBtn.textContent = isMobile() ? '🔴 Listening...' : '🔴 Listening... speak now!';
   micBtn.disabled = true;
+  micBtn.onclick = null; // clear while recording to prevent double-fire
   result.className='pronun-result';
-  note.style.display='none';
+  if (note) note.style.display='none';
 
   let didGetResult = false;
 
@@ -1096,11 +1393,11 @@ function doRecord(expectedRoman, word) {
     saveData();
     if (correct) {
       micBtn.className='mic-btn success'; micBtn.textContent='✓ Good job!';
-      micBtn.onclick=()=>doRecord(expectedRoman,word);
+      micBtn.onclick = () => doRecord(expectedRoman, word);
       addXP(true);
     } else {
       micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-      micBtn.onclick=()=>doRecord(expectedRoman,word);
+      micBtn.onclick = () => doRecord(expectedRoman, word);
       document.getElementById('nextBtn').className='next-btn show';
     }
   };
@@ -1108,26 +1405,24 @@ function doRecord(expectedRoman, word) {
   rec.onerror = (e) => {
     didGetResult = true;
     micBtn.disabled=false;
-    // On iOS 'not-allowed' means mic permission denied
-    if (e.error==='not-allowed'||e.error==='permission-denied') {
+    if (e.error==='not-allowed'||e.error==='permission-denied'||e.error==='service-not-allowed') {
       result.className='pronun-result nothing show';
-      result.innerHTML='🎤 Mic access denied. Go to Settings → Safari → Microphone and allow access.';
+      result.innerHTML='🎤 Microphone not allowed. On iPhone: go to Settings → Safari → Microphone → Allow, then reload the page.';
     } else {
       result.className='pronun-result nothing show';
       result.innerHTML=`🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and try again.':'Mic error: '+e.error+'. Try again.'}`;
     }
     micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-    micBtn.onclick=()=>doRecord(expectedRoman,word);
+    micBtn.onclick = () => doRecord(expectedRoman, word);
     document.getElementById('nextBtn').className='next-btn show';
   };
 
   rec.onend = () => {
-    // On iOS Safari, onend fires before onresult sometimes — wait a tick
     setTimeout(() => {
       if (!didGetResult) {
         micBtn.disabled=false;
         micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-        micBtn.onclick=()=>doRecord(expectedRoman,word);
+        micBtn.onclick = () => doRecord(expectedRoman, word);
         result.className='pronun-result nothing show';
         result.innerHTML='🎤 Nothing heard — tap the mic and try again.';
         document.getElementById('nextBtn').className='next-btn show';
@@ -1138,14 +1433,15 @@ function doRecord(expectedRoman, word) {
   try {
     rec.start();
   } catch(e) {
-    micBtn.disabled=false; micBtn.className='mic-btn'; micBtn.textContent='🎤 Try again';
+    micBtn.disabled=false; micBtn.className='mic-btn';
+    micBtn.textContent='🎤 Try again';
+    micBtn.onclick = () => doRecord(expectedRoman, word);
     result.className='pronun-result retry show';
     result.innerHTML='🎤 Could not start mic. Make sure microphone permission is granted.';
     document.getElementById('nextBtn').className='next-btn show';
     return;
   }
 
-  // iOS Safari stops automatically after ~5s; desktop needs manual stop
   if (!isMobileSafari()) {
     setTimeout(() => { try{rec.stop();}catch(err){} }, 5000);
   }
@@ -1160,12 +1456,12 @@ function renderPick(card, q) {
     <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}" style="margin-bottom:0.75rem;">🔊 Hear it</button>
     <div class="choices" id="choicesEl"></div>
     <div class="pick-feedback" id="pickFb"></div>`;
-  document.getElementById('listenBtn').addEventListener('click', function() { speakWord(decodeURIComponent(this.dataset.tts),this); });
+  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
   const choicesEl = document.getElementById('choicesEl');
   q.choices.forEach(c => {
     const btn = document.createElement('button');
     btn.className='choice-btn'; btn.textContent=c.e;
-    btn.addEventListener('click', () => checkChoice(btn,c.g,w.g,w.e,w));
+    btn.onclick = () => checkChoice(btn,c.g,w.g,w.e,w);
     choicesEl.appendChild(btn);
   });
   setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
@@ -1200,7 +1496,10 @@ function nextQ() { curQ++; curQ>=questions.length ? finishLesson() : renderQ(); 
 
 function finishLesson() {
   const d = currentData(), p = meta(currentProfileId);
-  d.xp += sessXP;
+  const prevLevel = getLevel(d.xp || 0);
+  d.xp = (d.xp || 0) + sessXP;
+  const newLevel = getLevel(d.xp);
+  const leveledUp = newLevel.name !== prevLevel.name;
   if (!isReview && curLesson && !d.completed.includes(curLesson.id)) {
     d.completed.push(curLesson.id);
     // Mark all words in lesson as seen
@@ -1235,7 +1534,11 @@ function finishLesson() {
   }
 
   // Celebration
-  setTimeout(() => launchCelebration(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
+  if (leveledUp) {
+    setTimeout(() => launchCelebration(newLevel.icon, `Level up! You're a ${newLevel.name}!`, 'mega'), 300);
+  } else {
+    setTimeout(() => launchCelebration(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
+  }
   showScreen('completeScreen');
 }
 
@@ -1252,39 +1555,38 @@ function showToast(msg) {
   t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400);
 }
 
-loadData(); // load localStorage instantly
-buildLogin(); // show UI immediately — no waiting
+loadData();
+buildLogin();
 
-// Then sync from Firestore in background and refresh if data changed
+// Background sync — update leaderboard display if Firestore has newer data
 (async () => {
   try {
     const snapshot = await db.collection('profiles').get();
-    if (snapshot.empty) {
-      // Nothing in Firestore yet — push local data up
-      saveData();
-      return;
-    }
+    if (snapshot.empty) { saveData(); return; }
     let changed = false;
     snapshot.forEach(doc => {
       const remote = doc.data();
-      const local = allData[doc.id] || {};
-      if (!remote.pin && local.pin) remote.pin = local.pin;
-      // Only update if remote data is actually different
-      if (JSON.stringify(remote) !== JSON.stringify(allData[doc.id])) {
-        allData[doc.id] = remote;
+      const pin = allData[doc.id] ? allData[doc.id].pin : null; // always preserve local PIN
+      const merged = { ...remote, pin };
+      if (JSON.stringify(merged) !== JSON.stringify(allData[doc.id])) {
+        allData[doc.id] = merged;
         changed = true;
       }
     });
     if (changed) {
-      try { localStorage.setItem('guj_v4', JSON.stringify(allData)); } catch(e) {}
-      // Silently refresh the login screen with updated data
-      // Only if user hasn't already navigated past it
-      if (document.getElementById('loginScreen').classList.contains('active')) {
-        buildLogin();
-      }
+      // Update cache (without PINs)
+      const forStorage = {};
+      PROFILES.forEach(p => {
+        if (!allData[p.id]) return;
+        const { pin, ...progress } = allData[p.id];
+        forStorage[p.id] = progress;
+      });
+      try { localStorage.setItem('guj_v4', JSON.stringify(forStorage)); } catch(e) {}
+      // Refresh login screen if still on it
+      if (document.getElementById('loginScreen').classList.contains('active')) buildLogin();
     }
   } catch(err) {
-    console.warn('Background Firestore sync failed:', err);
+    console.warn('Background sync failed:', err);
   }
 })();
 
