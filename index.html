@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ગુજરાતી">
@@ -10,188 +10,177 @@
 <meta name="theme-color" content="#f4f3ee">
 <title>ગુજરાતી શીખો</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f3ee; color: #1a1a1a; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-.app { max-width: 480px; margin: 0 auto; padding: 1rem 1rem env(safe-area-inset-bottom, 2rem); padding-bottom: max(3rem, env(safe-area-inset-bottom)); }
-.screen { display: none; }
-.screen.active { display: block; }
-
-/* ── CONFETTI CANVAS ── */
-#confettiCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9998; }
-
-/* ── CELEBRATION OVERLAY ── */
-.celeb-overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9997; pointer-events: none; }
-.celeb-emoji { font-size: 80px; animation: celebPop 0.5s cubic-bezier(0.17,0.89,0.32,1.49) forwards; opacity: 0; }
-.celeb-text { font-size: 28px; font-weight: 800; color: white; text-shadow: 0 2px 12px rgba(0,0,0,0.4); margin-top: 12px; animation: celebSlide 0.5s 0.15s ease forwards; opacity: 0; }
-@keyframes celebPop { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
-@keyframes celebSlide { 0%{transform:translateY(20px);opacity:0} 100%{transform:translateY(0);opacity:1} }
-
-/* ── TOAST ── */
-.toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); background: #1D9E75; color: white; padding: 8px 22px; border-radius: 99px; font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 9999; box-shadow: 0 4px 18px rgba(29,158,117,0.4); white-space: nowrap; }
-.toast.show { opacity: 1; }
-
-/* ── LOGIN ── */
-.login-header { text-align: center; padding: 1.25rem 0 0.75rem; }
-.login-title { font-size: 26px; font-weight: 800; }
-.login-sub { font-size: 13px; color: #888; margin-top: 3px; }
-
-/* WORD OF THE DAY */
-.wotd-card { background: white; border: 1.5px solid #e8e8e8; border-radius: 16px; padding: 14px 16px; margin-bottom: 1rem; display: flex; align-items: center; gap: 14px; }
-.wotd-icon { font-size: 28px; flex-shrink: 0; }
-.wotd-body { flex: 1; }
-.wotd-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #aaa; margin-bottom: 3px; }
-.wotd-guj { font-size: 26px; font-weight: 700; line-height: 1; }
-.wotd-roman { font-size: 13px; color: #888; font-style: italic; }
-.wotd-english { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
-.wotd-hear { background: #E1F5EE; border: 1.5px solid #5DCAA5; border-radius: 10px; padding: 8px 14px; font-size: 13px; color: #0F6E56; cursor: pointer; font-weight: 600; font-family: inherit; white-space: nowrap; }
-.wotd-hear:disabled { opacity: 0.5; cursor: wait; }
-
-/* FAMILY CHALLENGE */
-.challenge-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 14px 16px; margin-bottom: 1rem; color: white; }
-.challenge-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.8; margin-bottom: 4px; }
-.challenge-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-.challenge-progress { display: flex; gap: 8px; align-items: center; }
-.challenge-bar-wrap { flex: 1; background: rgba(255,255,255,0.25); border-radius: 99px; height: 8px; overflow: hidden; }
-.challenge-bar { height: 100%; border-radius: 99px; background: white; transition: width 0.6s ease; }
-.challenge-pct { font-size: 12px; font-weight: 700; opacity: 0.9; }
-.challenge-profiles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.challenge-pip { font-size: 11px; background: rgba(255,255,255,0.2); border-radius: 99px; padding: 3px 8px; }
-.challenge-pip.done { background: rgba(255,255,255,0.5); font-weight: 700; }
-
-/* LEADERBOARDS */
-.lb-section { margin-bottom: 1rem; }
-.section-label { font-size: 11px; font-weight: 700; color: #bbb; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-.lb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.lb-card { background: white; border: 1px solid #e8e8e8; border-radius: 14px; padding: 12px; }
-.lb-title { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-.lb-row { display: flex; align-items: center; gap: 7px; padding: 4px 0; border-bottom: 0.5px solid #f5f5f5; }
-.lb-row:last-child { border-bottom: none; }
-.lb-rank { font-size: 14px; width: 22px; text-align: center; }
-.lb-emoji { font-size: 20px; width: 26px; text-align: center; }
-.lb-info { flex: 1; min-width: 0; }
-.lb-pname { font-size: 12px; font-weight: 600; }
-.lb-val { font-size: 11px; color: #aaa; margin-top: 1px; }
-.lb-val.hi { color: #1D9E75; font-weight: 700; }
-
-/* PROFILES */
-.profile-section-label { font-size: 11px; font-weight: 700; color: #bbb; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.profile-card { background: white; border: 2px solid #e8e8e8; border-radius: 16px; padding: 16px 12px 12px; text-align: center; cursor: pointer; transition: all 0.18s; position: relative; }
-.profile-card:hover { border-color: #1D9E75; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(29,158,117,0.15); }
-.profile-avatar { font-size: 42px; margin-bottom: 6px; line-height: 1; }
-.profile-name { font-size: 15px; font-weight: 700; }
-.profile-xp { font-size: 12px; color: #888; margin-top: 2px; }
-.profile-streak { font-size: 12px; margin-top: 2px; }
-.streak-risk { position: absolute; top: 8px; right: 8px; font-size: 10px; background: #FFF5F0; color: #D85A30; border: 1px solid #F09595; border-radius: 6px; padding: 2px 6px; font-weight: 700; }
-.review-badge { position: absolute; top: 8px; left: 8px; font-size: 10px; background: #E6F1FB; color: #0C447C; border: 1px solid #85B7EB; border-radius: 6px; padding: 2px 6px; font-weight: 700; }
-
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f3ee;color:#1a1a1a;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.app{max-width:480px;margin:0 auto;padding:1rem 1rem env(safe-area-inset-bottom,2rem)}
+.screen{display:none}.screen.active{display:block}
+/* Canvas */
+#confettiCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998}
+/* Celebration */
+.celeb-overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9997;pointer-events:none}
+.celeb-emoji{font-size:80px;animation:celebPop .5s cubic-bezier(.17,.89,.32,1.49) forwards;opacity:0}
+.celeb-text{font-size:26px;font-weight:800;color:white;text-shadow:0 2px 12px rgba(0,0,0,.4);margin-top:12px;animation:celebSlide .5s .15s ease forwards;opacity:0;text-align:center;padding:0 1rem}
+@keyframes celebPop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes celebSlide{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}}
+/* Toast */
+.toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:#1D9E75;color:white;padding:8px 22px;border-radius:99px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9999;box-shadow:0 4px 18px rgba(29,158,117,.4);white-space:nowrap}
+.toast.show{opacity:1}
+/* Login */
+.login-header{text-align:center;padding:1.25rem 0 .75rem}
+.login-title{font-size:26px;font-weight:800}
+.login-sub{font-size:13px;color:#888;margin-top:3px}
+/* Bholu */
+.bholu-section{text-align:center;padding:10px 0 4px}
+.bholu-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-bottom:6px}
+/* WOTD */
+.wotd-card{background:white;border:1.5px solid #e8e8e8;border-radius:16px;padding:14px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:14px}
+.wotd-icon{font-size:28px;flex-shrink:0}
+.wotd-body{flex:1}
+.wotd-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#aaa;margin-bottom:3px}
+.wotd-guj{font-size:26px;font-weight:700;line-height:1}
+.wotd-roman{font-size:13px;color:#888;font-style:italic}
+.wotd-english{font-size:14px;font-weight:600;color:#1a1a1a;margin-top:2px}
+.wotd-hear{background:#E1F5EE;border:1.5px solid #5DCAA5;border-radius:10px;padding:8px 14px;font-size:13px;color:#0F6E56;cursor:pointer;font-weight:600;font-family:inherit;white-space:nowrap}
+.wotd-hear:disabled{opacity:.5;cursor:wait}
+/* Challenge */
+.challenge-card{background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px;padding:14px 16px;margin-bottom:1rem;color:white}
+.challenge-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.8;margin-bottom:4px}
+.challenge-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.challenge-progress{display:flex;gap:8px;align-items:center}
+.challenge-bar-wrap{flex:1;background:rgba(255,255,255,.25);border-radius:99px;height:8px;overflow:hidden}
+.challenge-bar{height:100%;border-radius:99px;background:white;transition:width .6s ease}
+.challenge-pct{font-size:12px;font-weight:700;opacity:.9}
+.challenge-profiles{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.challenge-pip{font-size:11px;background:rgba(255,255,255,.2);border-radius:99px;padding:3px 8px}
+.challenge-pip.done{background:rgba(255,255,255,.5);font-weight:700}
+/* Leaderboard */
+.lb-section{margin-bottom:1rem}
+.section-label{font-size:11px;font-weight:700;color:#bbb;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em}
+.lb-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lb-card{background:white;border:1px solid #e8e8e8;border-radius:14px;padding:12px}
+.lb-title{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.lb-row{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:.5px solid #f5f5f5}
+.lb-row:last-child{border-bottom:none}
+.lb-rank{font-size:14px;width:22px;text-align:center}
+.lb-emoji{font-size:20px;width:26px;text-align:center}
+.lb-info{flex:1;min-width:0}
+.lb-pname{font-size:12px;font-weight:600}
+.lb-val{font-size:11px;color:#aaa;margin-top:1px}
+.lb-val.hi{color:#1D9E75;font-weight:700}
+/* Profiles */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.profile-card{background:white;border:2px solid #e8e8e8;border-radius:16px;padding:16px 12px 12px;text-align:center;cursor:pointer;transition:all .18s;position:relative}
+.profile-card:hover{border-color:#1D9E75;transform:translateY(-2px);box-shadow:0 6px 20px rgba(29,158,117,.15)}
+.profile-avatar{font-size:42px;margin-bottom:6px;line-height:1}
+.profile-name{font-size:15px;font-weight:700}
+.profile-xp{font-size:12px;color:#888;margin-top:2px}
+.profile-streak{font-size:12px;margin-top:2px}
+.streak-risk{position:absolute;top:8px;right:8px;font-size:10px;background:#FFF5F0;color:#D85A30;border:1px solid #F09595;border-radius:6px;padding:2px 6px;font-weight:700}
+.review-badge{position:absolute;top:8px;left:8px;font-size:10px;background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;border-radius:6px;padding:2px 6px;font-weight:700}
 /* PIN */
-.pin-wrap { text-align: center; padding: 2rem 0; }
-.pin-avatar-emoji { font-size: 64px; margin-bottom: 12px; line-height: 1; }
-.pin-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-.pin-step { font-size: 13px; color: #1D9E75; font-weight: 600; margin-bottom: 4px; }
-.pin-label { font-size: 14px; color: #888; margin-bottom: 1.5rem; }
-.pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 1.5rem; }
-.pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ccc; background: white; transition: all 0.15s; }
-.pin-dot.filled { background: #1D9E75; border-color: #1D9E75; }
-.pin-dot.wrong { background: #E24B4A; border-color: #E24B4A; animation: shake 0.35s; }
-.pin-error { color: #E24B4A; font-size: 13px; min-height: 18px; margin-bottom: 0.75rem; }
-.pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 240px; margin: 0 auto 1rem; }
-.pin-key { padding: 16px; background: white; border: 1.5px solid #e0e0e0; border-radius: 12px; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.12s; font-family: inherit; }
-.pin-key:hover { background: #f0fbf7; border-color: #1D9E75; }
-.pin-key:active { transform: scale(0.93); }
-.pin-key.del { font-size: 16px; color: #888; }
-.back-link { background: none; border: none; color: #aaa; font-size: 14px; cursor: pointer; font-family: inherit; display: block; margin: 0.5rem auto 0; }
-
-/* HOME */
-.home-header { display: flex; align-items: center; gap: 12px; padding: 0.75rem 0 0.5rem; }
-.home-avatar-emoji { font-size: 36px; line-height: 1; flex-shrink: 0; }
-.home-greeting { flex: 1; }
-.home-name { font-size: 18px; font-weight: 700; }
-.home-tagline { font-size: 12px; color: #888; margin-top: 1px; }
-.logout-btn { background: none; border: 1px solid #e0e0e0; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #888; cursor: pointer; font-family: inherit; }
-.stats-row { display: flex; gap: 8px; margin: 0.25rem 0 0.75rem; }
-.stat-card { flex: 1; background: white; border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid #e8e8e8; }
-.stat-num { font-size: 20px; font-weight: 700; }
-.stat-label { font-size: 10px; color: #888; margin-top: 1px; }
-
-/* REVIEW QUEUE */
-.review-card { background: #E6F1FB; border: 1.5px solid #85B7EB; border-radius: 14px; padding: 13px 14px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
-.review-card:hover { background: #B5D4F4; }
-.review-icon { font-size: 22px; }
-.review-info { flex: 1; }
-.review-title { font-size: 14px; font-weight: 700; color: #0C447C; }
-.review-sub { font-size: 12px; color: #185FA5; margin-top: 2px; }
-.review-arrow { font-size: 18px; color: #185FA5; }
-
-.home-lessons { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
-.lesson-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border: 1.5px solid #e8e8e8; border-radius: 14px; cursor: pointer; transition: all 0.15s; }
-.lesson-row:hover:not(.locked) { border-color: #1D9E75; background: #f0fbf7; box-shadow: 0 3px 12px rgba(29,158,117,0.1); }
-.lesson-row.locked { opacity: 0.4; cursor: not-allowed; }
-.l-icon { font-size: 22px; width: 34px; text-align: center; }
-.l-info { flex: 1; }
-.l-name { font-size: 14px; font-weight: 600; }
-.l-desc { font-size: 11px; color: #888; margin-top: 1px; }
-.l-badge { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: #f0f0f0; color: #888; white-space: nowrap; font-weight: 600; }
-.l-badge.done { background: #E1F5EE; color: #085041; }
-.l-due { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: #E6F1FB; color: #0C447C; font-weight: 700; margin-left: 4px; }
-.tip-box { background: #fffbf0; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 13px; font-size: 13px; color: #7c6200; line-height: 1.6; }
-
-/* LESSON */
-.back-btn { display: inline-flex; align-items: center; gap: 5px; background: none; border: none; color: #888; font-size: 13px; cursor: pointer; padding: 0 0 0.75rem 0; font-family: inherit; }
-.progress-bar { background: #e0e0e0; border-radius: 99px; height: 7px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 99px; background: #1D9E75; transition: width 0.4s ease; }
-.prog-label { font-size: 11px; color: #aaa; text-align: right; margin-top: 3px; margin-bottom: 0.75rem; }
-.lesson-card { background: white; border: 1.5px solid #e8e8e8; border-radius: 16px; padding: 1.5rem; margin-bottom: 0.75rem; }
-.q-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #ccc; margin-bottom: 0.75rem; }
-.guj-big { font-size: 52px; text-align: center; padding: 0.5rem 0 0.25rem; line-height: 1.2; }
-.roman { font-size: 16px; text-align: center; color: #999; margin-bottom: 2px; font-style: italic; }
-.english { font-size: 19px; font-weight: 700; text-align: center; margin-bottom: 1rem; }
-.listen-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: #E1F5EE; border: 1.5px solid #5DCAA5; border-radius: 12px; font-size: 15px; color: #0F6E56; cursor: pointer; font-weight: 600; transition: all 0.15s; font-family: inherit; }
-.listen-btn:hover:not(:disabled) { background: #9FE1CB; }
-.listen-btn:disabled { opacity: 0.55; cursor: wait; }
-.mic-section { margin-top: 10px; }
-.mic-required-note { font-size: 12px; color: #aaa; text-align: center; margin-top: 8px; font-style: italic; }
-.mic-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: white; border: 1.5px solid #ccc; border-radius: 12px; font-size: 15px; color: #555; cursor: pointer; transition: all 0.15s; font-family: inherit; font-weight: 500; }
-.mic-btn:hover:not(:disabled) { background: #f5f5f5; border-color: #999; }
-.mic-btn.recording { background: #FFF5F0; border-color: #D85A30; color: #7a2800; animation: pulse 1.2s infinite; }
-.mic-btn.success { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
-.mic-btn.fail { background: #FFF0F0; border-color: #E24B4A; color: #7a0000; }
-.mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pronun-result { margin-top: 10px; padding: 12px 14px; border-radius: 10px; font-size: 14px; display: none; line-height: 1.6; }
-.pronun-result.show { display: block; }
-.pronun-result.great   { background: #E1F5EE; border: 1px solid #5DCAA5; color: #085041; }
-.pronun-result.ok      { background: #EAF3DE; border: 1px solid #97C459; color: #173404; }
-.pronun-result.retry   { background: #FAEEDA; border: 1px solid #EF9F27; color: #633806; }
-.pronun-result.nothing { background: #FFF0F0; border: 1px solid #F09595; color: #501313; }
-.pronun-heard { font-size: 12px; opacity: 0.7; margin-top: 4px; }
-.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0.75rem; }
-.choice-btn { padding: 14px 8px; background: #f8f8f8; border: 1.5px solid #e0e0e0; border-radius: 12px; font-size: 14px; cursor: pointer; text-align: center; transition: all 0.15s; color: #1a1a1a; font-family: inherit; font-weight: 500; }
-.choice-btn:hover:not(:disabled) { border-color: #1D9E75; background: #f0fbf7; }
-.choice-btn.correct { background: #E1F5EE; border-color: #1D9E75; color: #085041; font-weight: 700; }
-.choice-btn.wrong { background: #FFF0F0; border-color: #E24B4A; color: #7a1a1a; }
-.choice-btn:disabled { cursor: default; }
-.pick-feedback { margin-top: 10px; padding: 10px 13px; border-radius: 10px; font-size: 14px; display: none; font-weight: 500; }
-.pick-feedback.show { display: block; }
-.pick-feedback.good { background: #E1F5EE; color: #085041; }
-.pick-feedback.bad  { background: #FAEEDA; color: #633806; }
-.next-btn { width: 100%; padding: 14px; background: #1D9E75; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 0.75rem; display: none; transition: background 0.15s; font-family: inherit; }
-.next-btn:hover { background: #0F6E56; }
-.next-btn.show { display: block; }
-
-/* COMPLETE */
-.complete-wrap { text-align: center; padding: 2rem 1rem 1rem; }
-.complete-icon { font-size: 64px; margin-bottom: 0.5rem; animation: celebPop 0.5s cubic-bezier(0.17,0.89,0.32,1.49) forwards; }
-.complete-title { font-size: 24px; font-weight: 800; margin-bottom: 5px; }
-.complete-sub { font-size: 14px; color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
-.complete-stats { display: flex; justify-content: center; gap: 2.5rem; margin-bottom: 1.5rem; }
-.cs-num { font-size: 32px; font-weight: 800; color: #1D9E75; }
-.cs-label { font-size: 12px; color: #888; margin-top: 2px; }
-.sr-next { background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem; font-size: 13px; color: #666; text-align: center; }
-.sr-next strong { color: #1a1a1a; }
-
-@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+.pin-wrap{text-align:center;padding:2rem 0}
+.pin-avatar-emoji{font-size:64px;margin-bottom:12px;line-height:1}
+.pin-name{font-size:20px;font-weight:700;margin-bottom:4px}
+.pin-step{font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:4px}
+.pin-label{font-size:14px;color:#888;margin-bottom:1.5rem}
+.pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:1.5rem}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid #ccc;background:white;transition:all .15s}
+.pin-dot.filled{background:#1D9E75;border-color:#1D9E75}
+.pin-dot.wrong{background:#E24B4A;border-color:#E24B4A;animation:shake .35s}
+.pin-error{color:#E24B4A;font-size:13px;min-height:18px;margin-bottom:.75rem}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 1rem}
+.pin-key{padding:16px;background:white;border:1.5px solid #e0e0e0;border-radius:12px;font-size:20px;font-weight:600;cursor:pointer;transition:all .12s;font-family:inherit}
+.pin-key:hover{background:#f0fbf7;border-color:#1D9E75}
+.pin-key:active{transform:scale(.93)}
+.pin-key.del{font-size:16px;color:#888}
+.back-link{background:none;border:none;color:#aaa;font-size:14px;cursor:pointer;font-family:inherit;display:block;margin:.5rem auto 0}
+/* Home */
+.home-header{display:flex;align-items:center;gap:12px;padding:.75rem 0 .5rem}
+.home-avatar-emoji{font-size:36px;line-height:1;flex-shrink:0}
+.home-greeting{flex:1}
+.home-name{font-size:18px;font-weight:700}
+.home-tagline{font-size:12px;color:#888;margin-top:1px}
+.logout-btn{background:none;border:1px solid #e0e0e0;border-radius:8px;padding:6px 10px;font-size:12px;color:#888;cursor:pointer;font-family:inherit}
+.stats-row{display:flex;gap:8px;margin:.25rem 0 .75rem}
+.stat-card{flex:1;background:white;border-radius:12px;padding:10px 8px;text-align:center;border:1px solid #e8e8e8}
+.stat-num{font-size:20px;font-weight:700}
+.stat-label{font-size:10px;color:#888;margin-top:1px}
+/* Review */
+.review-card{background:#E6F1FB;border:1.5px solid #85B7EB;border-radius:14px;padding:13px 14px;margin-bottom:.75rem;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
+.review-card:hover{background:#B5D4F4}
+.review-icon{font-size:22px}
+.review-info{flex:1}
+.review-title{font-size:14px;font-weight:700;color:#0C447C}
+.review-sub{font-size:12px;color:#185FA5;margin-top:2px}
+.review-arrow{font-size:18px;color:#185FA5}
+/* Lesson list */
+.home-lessons{display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem}
+.lesson-row{display:flex;align-items:center;gap:12px;padding:12px;background:white;border:1.5px solid #e8e8e8;border-radius:14px;cursor:pointer;transition:all .15s}
+.lesson-row:hover:not(.locked){border-color:#1D9E75;background:#f0fbf7;box-shadow:0 3px 12px rgba(29,158,117,.1)}
+.lesson-row.locked{opacity:.4;cursor:not-allowed}
+.l-icon{font-size:22px;width:34px;text-align:center}
+.l-info{flex:1}
+.l-name{font-size:14px;font-weight:600}
+.l-desc{font-size:11px;color:#888;margin-top:1px}
+.l-badge{font-size:10px;padding:3px 8px;border-radius:99px;background:#f0f0f0;color:#888;white-space:nowrap;font-weight:600}
+.l-badge.done{background:#E1F5EE;color:#085041}
+.tip-box{background:#fffbf0;border:1px solid #fde68a;border-radius:10px;padding:11px 13px;font-size:13px;color:#7c6200;line-height:1.6}
+/* Lesson */
+.back-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;padding:0 0 .75rem;font-family:inherit}
+.progress-bar{background:#e0e0e0;border-radius:99px;height:7px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px;background:#1D9E75;transition:width .4s ease}
+.prog-label{font-size:11px;color:#aaa;text-align:right;margin-top:3px;margin-bottom:.75rem}
+.lesson-card{background:white;border:1.5px solid #e8e8e8;border-radius:16px;padding:1.5rem;margin-bottom:.75rem}
+.q-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#ccc;margin-bottom:.75rem}
+.word-img{font-size:36px;text-align:center;padding:4px 0}
+.guj-big{font-size:52px;text-align:center;padding:.5rem 0 .25rem;line-height:1.2}
+.roman{font-size:16px;text-align:center;color:#999;margin-bottom:2px;font-style:italic}
+.english{font-size:19px;font-weight:700;text-align:center;margin-bottom:1rem}
+.tpr-box{background:#FFF5F0;border:1.5px solid #F09595;border-radius:12px;padding:12px 14px;text-align:center;margin-bottom:10px;font-size:15px;font-weight:600;color:#993C1D}
+.listen-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:#E1F5EE;border:1.5px solid #5DCAA5;border-radius:12px;font-size:15px;color:#0F6E56;cursor:pointer;font-weight:600;transition:all .15s;font-family:inherit}
+.listen-btn:hover:not(:disabled){background:#9FE1CB}
+.listen-btn:disabled{opacity:.55;cursor:wait}
+.mic-section{margin-top:10px}
+.mic-note{font-size:12px;color:#aaa;text-align:center;margin-top:8px;font-style:italic}
+.mic-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:white;border:1.5px solid #ccc;border-radius:12px;font-size:15px;color:#555;cursor:pointer;transition:all .15s;font-family:inherit;font-weight:500}
+.mic-btn:hover:not(:disabled){background:#f5f5f5;border-color:#999}
+.mic-btn.recording{background:#FFF5F0;border-color:#D85A30;color:#7a2800;animation:pulse 1.2s infinite}
+.mic-btn.success{background:#E1F5EE;border-color:#1D9E75;color:#0F6E56}
+.mic-btn.fail{background:#FFF0F0;border-color:#E24B4A;color:#7a0000}
+.mic-btn:disabled{opacity:.4;cursor:not-allowed}
+.pronun-result{margin-top:10px;padding:12px 14px;border-radius:10px;font-size:14px;display:none;line-height:1.6}
+.pronun-result.show{display:block}
+.pronun-result.great{background:#E1F5EE;border:1px solid #5DCAA5;color:#085041}
+.pronun-result.ok{background:#EAF3DE;border:1px solid #97C459;color:#173404}
+.pronun-result.retry{background:#FAEEDA;border:1px solid #EF9F27;color:#633806}
+.pronun-result.nothing{background:#FFF0F0;border:1px solid #F09595;color:#501313}
+.pronun-heard{font-size:12px;opacity:.7;margin-top:4px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:.75rem}
+.choice-btn{padding:14px 8px;background:#f8f8f8;border:1.5px solid #e0e0e0;border-radius:12px;font-size:14px;cursor:pointer;text-align:center;transition:all .15s;color:#1a1a1a;font-family:inherit;font-weight:500}
+.choice-btn:hover:not(:disabled){border-color:#1D9E75;background:#f0fbf7}
+.choice-btn.correct{background:#E1F5EE;border-color:#1D9E75;color:#085041;font-weight:700}
+.choice-btn.wrong{background:#FFF0F0;border-color:#E24B4A;color:#7a1a1a}
+.choice-btn:disabled{cursor:default}
+.pick-feedback{margin-top:10px;padding:10px 13px;border-radius:10px;font-size:14px;display:none;font-weight:500}
+.pick-feedback.show{display:block}
+.pick-feedback.good{background:#E1F5EE;color:#085041}
+.pick-feedback.bad{background:#FAEEDA;color:#633806}
+.next-btn{width:100%;padding:14px;background:#1D9E75;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:.75rem;display:none;transition:background .15s;font-family:inherit}
+.next-btn:hover{background:#0F6E56}
+.next-btn.show{display:block}
+/* Complete */
+.complete-wrap{text-align:center;padding:2rem 1rem 1rem}
+.complete-icon{font-size:64px;margin-bottom:.5rem;animation:celebPop .5s cubic-bezier(.17,.89,.32,1.49) forwards}
+.complete-title{font-size:24px;font-weight:800;margin-bottom:5px}
+.complete-sub{font-size:14px;color:#666;margin-bottom:1.5rem;line-height:1.6}
+.complete-stats{display:flex;justify-content:center;gap:2.5rem;margin-bottom:1.5rem}
+.cs-num{font-size:32px;font-weight:800;color:#1D9E75}
+.cs-label{font-size:12px;color:#888;margin-top:2px}
+.sr-next{background:#f8f8f8;border:1px solid #e0e0e0;border-radius:12px;padding:12px 14px;margin-bottom:1rem;font-size:13px;color:#666;text-align:center}
+.sr-next strong{color:#1a1a1a}
+/* Animations */
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
 </style>
 </head>
 <body>
@@ -212,47 +201,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="section-label">Family leaderboard</div>
     <div class="lb-grid" id="loginLbGrid"></div>
   </div>
-  <div class="profile-section-label">Who's learning today?</div>
+  <div class="section-label">Who's learning today?</div>
   <div class="profile-grid" id="profileGrid"></div>
 </div>
 
 <!-- PIN -->
 <div class="screen" id="pinScreen">
-  <div class="pin-wrap" id="pinWrap"></div>
+  <div id="pinWrap" class="pin-wrap"></div>
 </div>
 
 <!-- HOME -->
 <div class="screen" id="homeScreen">
   <div class="home-header">
-    <div class="home-avatar-emoji" id="homeAvatarEmoji"></div>
+    <div class="home-avatar-emoji" id="homeAvatar"></div>
     <div class="home-greeting">
       <div class="home-name" id="homeName"></div>
       <div class="home-tagline">ગુજરાતી શીખો · 5 min a day</div>
     </div>
-    <button class="logout-btn" onclick="logout()">← Switch</button>
+    <button class="logout-btn" id="logoutBtn">← Switch</button>
   </div>
   <div class="stats-row">
     <div class="stat-card"><div class="stat-num" id="statStreak">0</div><div class="stat-label">🔥 Streak</div></div>
     <div class="stat-card"><div class="stat-num" id="statXP">0</div><div class="stat-label">⭐ XP</div></div>
     <div class="stat-card"><div class="stat-num" id="statWords">0</div><div class="stat-label">💬 Words</div></div>
   </div>
-  <div style="text-align:center;margin:-0.5rem 0 0.75rem;">
-    <span id="levelBadge" style="font-size:13px;font-weight:700;background:#f0f0f0;padding:4px 14px;border-radius:99px;color:#555;">🌱 Beginner</span>
+  <div style="text-align:center;margin:-.5rem 0 .75rem">
+    <span id="levelBadge" style="font-size:13px;font-weight:700;background:#f0f0f0;padding:4px 14px;border-radius:99px;color:#555">🌱 Beginner</span>
   </div>
-  <div style="text-align:center;margin:-0.25rem 0 0.5rem" id="homeBholu"></div>
+  <div id="homeBholuWrap" style="text-align:center;margin-bottom:.5rem"></div>
   <div id="reviewSection"></div>
   <div class="section-label">Lessons</div>
   <div class="home-lessons" id="lessonList"></div>
-  <div class="tip-box">💡 Listen carefully before speaking. Your review queue brings back words at just the right time!</div>
+  <div class="tip-box">💡 Listen carefully then say it out loud. Your review queue brings back words at the perfect time!</div>
 </div>
 
 <!-- LESSON -->
 <div class="screen" id="lessonScreen">
-  <button class="back-btn" onclick="goHome()">← Home</button>
+  <button class="back-btn" id="backBtn">← Home</button>
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   <div class="prog-label" id="progLabel">0 / 0</div>
   <div class="lesson-card" id="qCard"></div>
-  <button class="next-btn" id="nextBtn" onclick="nextQ()">Continue →</button>
+  <button class="next-btn" id="nextBtn">Continue →</button>
 </div>
 
 <!-- COMPLETE -->
@@ -266,91 +255,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div><div class="cs-num" id="cCorrect">0</div><div class="cs-label">Correct</div></div>
     </div>
     <div class="sr-next" id="srNext"></div>
-    <button class="next-btn show" onclick="goHome()" style="max-width:220px;margin:0 auto;">Back to home</button>
+    <button class="next-btn show" id="doneBtn" style="max-width:220px;margin:0 auto">Back to home</button>
   </div>
 </div>
 
-</div>
+</div><!-- .app -->
 
 <script>
-const TTS_API_KEY = 'AIzaSyCRkcUmaD_ViELXitTFCtQlOf2HKPtaGK4';
+/* ═══════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════ */
+const CFG = {
+  API_BASE:    'https://gujaratiapi-jg5pnhp7aa-uc.a.run.app',
+  APP_KEY:     'guj-parikh-2026',
+  TTS_KEY:     'AIzaSyCRkcUmaD_ViELXitTFCtQlOf2HKPtaGK4',
+  STORAGE_KEY: 'guj_v6',
+  PIN_KEY:     'guj_pins',
+};
 
-/* ══════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
    PROFILES
-══════════════════════════════════════════ */
-function profileAvatar(p, size) {
-  const fs = Math.round((size||44)*0.65);
-  return `<span style="font-size:${fs}px;line-height:1;display:inline-block">${p.emoji}</span>`;
-}
-
+═══════════════════════════════════════════════════════ */
 const PROFILES = [
   { id:'anand',  name:'Anand',  emoji:'🧔🏾', color:'#1D9E75' },
-  { id:'lauren', name:'Lauren', emoji:'👩',    color:'#7F77DD' },
-  { id:'mira',   name:'Mira',   emoji:'👧🏽',  color:'#D4537E' },
-  { id:'hugo',   name:'Hugo',   emoji:'👦🏽',  color:'#378ADD' },
+  { id:'lauren', name:'Lauren', emoji:'👩',   color:'#7F77DD' },
+  { id:'mira',   name:'Mira',   emoji:'👧🏽', color:'#D4537E' },
+  { id:'hugo',   name:'Hugo',   emoji:'👦🏽', color:'#378ADD' },
 ];
 
-
-/* ══════════════════════════════════════════
-   BHOLU — THE FRIENDLY MONSTER GUIDE
-   Clothing unlocks per stage completion
-══════════════════════════════════════════ */
-const BHOLU_ITEMS = [
-  { stage:1, item:'tiny hat',          emoji:'🎩', desc:'Bholu found a tiny hat!' },
-  { stage:2, item:'giant bow tie',     emoji:'🎀', desc:'Bholu is looking fancy!' },
-  { stage:3, item:'cool sunglasses',   emoji:'🕶️', desc:'Bholu thinks he looks cool!' },
-  { stage:4, item:'mismatched socks',  emoji:'🧦', desc:'Bholu has fashion opinions!' },
-  { stage:5, item:'tuxedo jacket',     emoji:'🤵', desc:'Bholu is very distinguished!' },
-  { stage:6, item:'graduation cap',    emoji:'🎓', desc:'Bholu is a scholar!' },
-];
-
-function getBholuItems(completed) {
-  // Which stages are fully complete?
-  const stagesDone = new Set();
-  STAGES.forEach(stage => {
-    const stageLessons = LESSONS.filter(l => l.stage === stage.num);
-    if (stageLessons.length > 0 && stageLessons.every(l => completed.includes(l.id))) {
-      stagesDone.add(stage.num);
-    }
-  });
-  return BHOLU_ITEMS.filter(item => stagesDone.has(item.stage));
-}
-
-function renderBholu(completed, size) {
-  const items = getBholuItems(completed);
-  const s = size || 80;
-  const hat    = items.find(i=>i.stage===1) ? '🎩' : '';
-  const bowtie = items.find(i=>i.stage===2) ? '🎀' : '';
-  const shades  = items.find(i=>i.stage===3) ? '🕶️' : '';
-  const socks   = items.find(i=>i.stage===4) ? '🧦' : '';
-  const tux    = items.find(i=>i.stage===5) ? '🤵' : '';
-  const grad   = items.find(i=>i.stage===6) ? '🎓' : '';
-  // Compose Bholu SVG
-  const capEmoji = grad || hat;
-  const bodyEmoji = tux ? '🤵' : '🟢';
-  return `<div style="position:relative;display:inline-block;width:${s}px;height:${s}px;text-align:center;line-height:1">
-    ${capEmoji ? `<div style="font-size:${Math.round(s*0.32)}px;position:absolute;top:-${Math.round(s*0.1)}px;left:50%;transform:translateX(-50%)">${capEmoji}</div>` : ''}
-    <div style="font-size:${Math.round(s*0.55)}px;margin-top:${Math.round(s*0.12)}px">${shades ? '🥸' : '😊'}</div>
-    ${bowtie ? `<div style="font-size:${Math.round(s*0.28)}px;margin-top:-${Math.round(s*0.08)}px">${bowtie}</div>` : ''}
-    ${socks ? `<div style="font-size:${Math.round(s*0.22)}px">${socks}${socks}</div>` : ''}
-  </div>`;
-}
-
-/* ══════════════════════════════════════════
-   STAGES
-══════════════════════════════════════════ */
-const STAGES = [
-  { num:1, name:'Core Survival',       color:'#1D9E75', desc:'Essential words for daily life' },
-  { num:2, name:'First Phrases',       color:'#378ADD', desc:'Combine words into phrases' },
-  { num:3, name:'Simple Sentences',    color:'#7F77DD', desc:'Say what is happening now' },
-  { num:4, name:'Conversations',       color:'#D4537E', desc:'Real back-and-forth dialogue' },
-  { num:5, name:'Fluency Building',    color:'#f4a261', desc:'Complex sentences and stories' },
-  { num:6, name:'Culture & Advanced',  color:'#854F0B', desc:'Cultural connection and nuance' },
-];
-
-/* ══════════════════════════════════════════
-   LEVEL SYSTEM
-══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   LEVELS  (XP thresholds)
+═══════════════════════════════════════════════════════ */
 const LEVELS = [
   { name:'Beginner',  icon:'🌱', min:0    },
   { name:'Explorer',  icon:'🔍', min:150  },
@@ -369,17 +304,54 @@ function getNextLevel(xp) {
   return null;
 }
 
-/* ══════════════════════════════════════════
-   FULL CURRICULUM
-   Fields per word:
-     g      = Gujarati script
-     r      = Romanization (display)
-     e      = English meaning
-     tts    = text sent to Google TTS
-     roman  = lowercase phonetic for scoring
-     tpr    = optional physical action prompt (kids)
-     img    = optional emoji illustration
-══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   STAGES  (curriculum stages)
+═══════════════════════════════════════════════════════ */
+const STAGES = [
+  { num:1, name:'Core Survival',    color:'#1D9E75' },
+  { num:2, name:'First Phrases',    color:'#378ADD' },
+  { num:3, name:'Simple Sentences', color:'#7F77DD' },
+  { num:4, name:'Conversations',    color:'#D4537E' },
+  { num:5, name:'Fluency Building', color:'#f4a261' },
+  { num:6, name:'Culture',          color:'#854F0B' },
+];
+
+/* ═══════════════════════════════════════════════════════
+   BHOLU  — monster guide
+   Unlocks clothing as each stage completes
+═══════════════════════════════════════════════════════ */
+const BHOLU_ITEMS = [
+  { stage:1, emoji:'🎩', label:'tiny hat'        },
+  { stage:2, emoji:'🎀', label:'giant bow tie'   },
+  { stage:3, emoji:'🕶️', label:'cool sunglasses' },
+  { stage:4, emoji:'🧦', label:'mismatched socks'},
+  { stage:5, emoji:'🤵', label:'tuxedo jacket'   },
+  { stage:6, emoji:'🎓', label:'graduation cap'  },
+];
+
+function getBholuItems(completed) {
+  const done = new Set();
+  STAGES.forEach(s => {
+    const sl = LESSONS.filter(l => l.stage === s.num);
+    if (sl.length && sl.every(l => completed.includes(l.id))) done.add(s.num);
+  });
+  return BHOLU_ITEMS.filter(b => done.has(b.stage));
+}
+
+function renderBholu(completed, size) {
+  const s = size || 72;
+  const items = getBholuItems(completed);
+  const cap  = items.find(i => i.stage === 6) ? '🎓' : items.find(i => i.stage === 1) ? '🎩' : '';
+  const face = items.find(i => i.stage === 3) ? '🥸' : '😊';
+  const bow  = items.find(i => i.stage === 2) ? `<div style="font-size:${Math.round(s*.28)}px;margin-top:-${Math.round(s*.06)}px">🎀</div>` : '';
+  const socks= items.find(i => i.stage === 4) ? `<div style="font-size:${Math.round(s*.22)}px">🧦🧦</div>` : '';
+  return `<div style="display:inline-block;position:relative;width:${s}px;text-align:center;line-height:1.1">
+    ${cap ? `<div style="font-size:${Math.round(s*.3)}px">${cap}</div>` : `<div style="font-size:${Math.round(s*.3)}px;opacity:0">·</div>`}
+    <div style="font-size:${Math.round(s*.55)}px">${face}</div>
+    ${bow}${socks}
+  </div>`;
+}
+
 const LESSONS = [
 
   /* ══════════════════════════════════════════
@@ -707,7 +679,7 @@ const LESSONS = [
       { g:'મારી ઉંમર ___ છે', r:'Maaree ummar ___ chhe', e:'I am ___ years old',  tts:'મારી ઉંમર છે',  roman:'maaree ummar chhe'  },
       { g:'___ વર્ષ',         r:'___ vars',              e:'___ years',           tts:'વર્ષ',          roman:'vars'               },
       { g:'___ રૂપિયા',       r:'___ roopiya',           e:'___ rupees',          tts:'રૂપિયા',        roman:'roopiya'            },
-      { g:'___ વાગ્યા',       r:'___ vaagya',            e:'___ o'clock',        tts:'વાગ્યા',        roman:'vaagya'             },
+      { g:'___ વાગ્યા',       r:'___ vaagya',            e:"___ o'clock",        tts:'વાગ્યા',        roman:'vaagya'             },
       { g:'કેટલા?',           r:'Ketlaa?',               e:'How many?',           tts:'કેટલા?',        roman:'ketlaa'             },
       { g:'ઘણા',              r:'Ghanaa',                e:'Many / A lot',        tts:'ઘણા',           roman:'ghanaa'             },
       { g:'થોડા',             r:'Thodaa',                e:'A few / A little',    tts:'થોડા',          roman:'thodaa'             },
@@ -940,108 +912,549 @@ const LESSONS = [
 
 /* ALL_WORDS flat list for SR and WOTD */
 const ALL_WORDS = LESSONS.flatMap(l => l.words.map(w => ({...w, lessonId: l.id})));
+/* ═══════════════════════════════════════════════════════
+   API  — all server communication in one place
+   • 8-second timeout on every call
+   • returns null on failure (never throws)
+═══════════════════════════════════════════════════════ */
+const API = {
+  async get(path) {
+    if (!CFG.API_BASE) return null;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(CFG.API_BASE + path, {
+        headers: { 'X-Api-Key': CFG.APP_KEY },
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+      return r.json();
+    } catch(e) { console.warn('API GET', path, e.message); return null; }
+  },
 
-/* ══════════════════════════════════════════
+  async post(path, body) {
+    if (!CFG.API_BASE) return null;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(CFG.API_BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': CFG.APP_KEY },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+      return r.json();
+    } catch(e) { console.warn('API POST', path, e.message); return null; }
+  },
+
+  // Push scores for one profile — never blocks UI, retries once on fail
+  pushScores(profileId, data) {
+    const { pin: _pin, ...payload } = data;
+    const hasData = (payload.xp > 0) || (payload.completed && payload.completed.length > 0)
+                 || (payload.streak > 0) || (payload.activityLog && payload.activityLog.length > 0);
+    if (!hasData) return;
+    this.post('/v1/scores/' + profileId, payload).then(r => {
+      if (!r || r.error) {
+        setTimeout(() => this.post('/v1/scores/' + profileId, payload).catch(() => {}), 3000);
+      }
+    }).catch(() => {});
+  },
+
+  // Pull scores for one profile from server
+  async pullScores(profileId) {
+    const res = await this.get('/v1/scores/' + profileId);
+    return res && res.scores ? res.scores : null;
+  },
+
+  // Log a user event (fire and forget)
+  logEvent(profileId, type, payload = {}) {
+    this.post('/v1/events', { profileId, type, payload, appVersion: '3.0' }).catch(() => {});
+  },
+
+  // AI lesson generation
+  async generateLesson(profileId) {
+    return this.post('/v1/lessons/generate/' + profileId, {});
+  },
+  async fetchGeneratedLessons(profileId) {
+    const res = await this.get('/v1/lessons/generated/' + profileId);
+    return res && res.lessons ? res.lessons : [];
+  },
+  async markLessonComplete(profileId, firestoreId, score) {
+    return this.post('/v1/lessons/complete/' + profileId, { firestoreId, score });
+  },
+};
+
+/* ═══════════════════════════════════════════════════════
+   STORE  — all app state in one place
+   • localStorage for offline
+   • PINs never leave the device
+═══════════════════════════════════════════════════════ */
+const Store = {
+  data: {},         // { [profileId]: { xp, streak, completed, sr, ... } }
+  aiLessons: [],    // AI-generated lesson objects for current session
+
+  // ── Load / Save ──────────────────────────────────────
+  load() {
+    try { this.data = JSON.parse(localStorage.getItem(CFG.STORAGE_KEY) || '{}'); } catch(e) { this.data = {}; }
+    // Restore PINs (stored separately, never in API)
+    const pins = this._loadPins();
+    PROFILES.forEach(p => {
+      if (!this.data[p.id]) this.data[p.id] = {};
+      this.data[p.id].pin = pins[p.id] || null;
+    });
+    this._migrate();
+  },
+
+  save(profileId) {
+    // 1. localStorage immediately
+    this._persist();
+    // 2. Push to API asynchronously
+    if (profileId && this.data[profileId]) {
+      API.pushScores(profileId, this.data[profileId]);
+    }
+  },
+
+  _persist() {
+    this._savePins();
+    const store = {};
+    PROFILES.forEach(p => {
+      if (!this.data[p.id]) return;
+      const { pin, ...rest } = this.data[p.id];
+      store[p.id] = rest;
+    });
+    try { localStorage.setItem(CFG.STORAGE_KEY, JSON.stringify(store)); } catch(e) {}
+  },
+
+  _savePins() {
+    const pins = {};
+    PROFILES.forEach(p => { pins[p.id] = (this.data[p.id] && this.data[p.id].pin) || null; });
+    try { localStorage.setItem(CFG.PIN_KEY, JSON.stringify(pins)); } catch(e) {}
+  },
+  _loadPins() {
+    try { return JSON.parse(localStorage.getItem(CFG.PIN_KEY) || '{}'); } catch(e) { return {}; }
+  },
+
+  // ── Profile access ───────────────────────────────────
+  profile(id) {
+    if (!this.data[id]) this.data[id] = {};
+    const d = this.data[id];
+    if (!d.xp) d.xp = 0;
+    if (!d.streak) d.streak = 0;
+    if (!d.lastDate) d.lastDate = '';
+    if (!d.completed) d.completed = [];
+    if (!d.activityLog) d.activityLog = [];
+    if (!d.sr) d.sr = {};
+    if (!d.lessonScores) d.lessonScores = {};
+    return d;
+  },
+
+  // ── Sync from API after PIN entry ─────────────────────
+  async syncFromAPI(profileId) {
+    const remote = await API.pullScores(profileId);
+    if (!remote) return;
+    const local = this.profile(profileId);
+    // Never let XP go backwards
+    remote.xp = Math.max(local.xp || 0, remote.xp || 0);
+    // Merge arrays
+    if (remote.completed) remote.completed = [...new Set([...(local.completed||[]), ...remote.completed])];
+    if (remote.activityLog) remote.activityLog = [...new Set([...(local.activityLog||[]), ...remote.activityLog])].sort();
+    // Keep PIN
+    const pin = local.pin;
+    this.data[profileId] = { ...remote, pin };
+    this._persist();
+    // Also fetch AI lessons
+    this.aiLessons = await API.fetchGeneratedLessons(profileId);
+    this._injectAILessons();
+  },
+
+  // ── AI lesson management ──────────────────────────────
+  _injectAILessons() {
+    this.aiLessons.forEach(l => {
+      if (!LESSONS.find(x => x.id === l.id)) {
+        LESSONS.push({ ...l, _ai: true });
+        if (l.words) {
+          l.words.forEach(w => {
+            if (!ALL_WORDS.find(x => x.g === w.g)) ALL_WORDS.push({ ...w, lessonId: l.id });
+          });
+        }
+      }
+    });
+  },
+
+  // Trigger AI generation if needed
+  // Logic: generate when player is near end of curated lessons OR has low mastery
+  maybeGenerateLesson(profileId) {
+    const d = this.profile(profileId);
+    const completed = d.completed || [];
+    const totalCurated = LESSONS.filter(l => !l._ai).length;
+    const completedCurated = completed.filter(id => LESSONS.find(l => l.id === id && !l._ai)).length;
+    const pendingAI = this.aiLessons.filter(l => !completed.includes(l.id)).length;
+
+    // Generate if: completed >50% of curated lessons AND fewer than 2 AI lessons pending
+    if (completedCurated > totalCurated * 0.5 && pendingAI < 2) {
+      API.generateLesson(profileId).then(res => {
+        if (res && res.lesson) {
+          this.aiLessons.push(res.lesson);
+          this._injectAILessons();
+        }
+      }).catch(() => {});
+    }
+  },
+
+  // ── Migration from old lesson IDs ────────────────────
+  _migrate() {
+    const idMap = {
+      'phrases':'s2_daily','greetings':'s1_greetings','family':'s1_family',
+      'numbers':'s1_nums1','colors':'s1_colors','food':'s1_food',
+      'animals':'s1_animals','body':'s1_body','emotions':'s1_feelings',
+      'clothes':'s1_clothes','home':'s1_home','verbs':'s1_verbs1',
+      'days':'s1_days','weather':'s1_weather','daily_phrases':'s2_daily',
+      'i_want':'s2_iwant','this_is':'s2_thisis','adjectives':'s2_describe',
+      'where_is':'s2_where','ba_dada_call':'s4_ba_dada','at_dinner':'s4_dinner',
+      'morning_routine':'s4_morning',
+    };
+    PROFILES.forEach(p => {
+      const d = this.data[p.id];
+      if (!d || !d.completed) return;
+      Object.entries(idMap).forEach(([old, newId]) => {
+        if (d.completed.includes(old) && !d.completed.includes(newId)) d.completed.push(newId);
+      });
+    });
+  },
+};
+
+/* ═══════════════════════════════════════════════════════
    SPACED REPETITION  (SM-2 simplified)
-   interval schedule: 1→3→7→14→30→60 days
-══════════════════════════════════════════ */
+   Intervals: 1 → 3 → 7 → 14 → 30 → 60 days
+═══════════════════════════════════════════════════════ */
 const SR_INTERVALS = [1, 3, 7, 14, 30, 60];
 
-function getSRData(profileId) {
-  const d = getProfileData(profileId);
-  if (!d.sr) d.sr = {};
-  return d.sr;
-}
+const SR = {
+  record(profileId, wordG, correct) {
+    const sr = Store.profile(profileId).sr;
+    if (!sr[wordG]) sr[wordG] = { level: 0, nextReview: null };
+    const e = sr[wordG];
+    e.level = correct ? Math.min(e.level + 1, SR_INTERVALS.length - 1) : Math.max(0, e.level - 1);
+    const next = new Date();
+    next.setDate(next.getDate() + SR_INTERVALS[e.level]);
+    e.nextReview = next.toISOString().slice(0, 10);
+    e.lastSeen = todayISO();
+  },
 
-function recordWordResult(profileId, wordG, correct) {
-  const sr = getSRData(profileId);
-  const key = wordG;
-  if (!sr[key]) sr[key] = { level: 0, nextReview: null };
-  const entry = sr[key];
-  if (correct) {
-    entry.level = Math.min(entry.level + 1, SR_INTERVALS.length - 1);
-  } else {
-    entry.level = Math.max(0, entry.level - 1);
-  }
-  const daysUntil = SR_INTERVALS[entry.level];
-  const next = new Date();
-  next.setDate(next.getDate() + daysUntil);
-  entry.nextReview = next.toISOString().slice(0, 10);
-  entry.lastSeen = todayISO();
-}
+  // Words due for review today
+  getDue(profileId) {
+    const d = Store.profile(profileId);
+    const sr = d.sr;
+    const today = todayISO();
+    const seen = [], unseen = [];
+    ALL_WORDS.forEach(w => {
+      const e = sr[w.g];
+      if (e && e.nextReview) {
+        if (e.nextReview <= today) seen.push(w);
+      } else {
+        if ((d.completed||[]).includes(w.lessonId)) unseen.push(w);
+      }
+    });
+    return [...seen, ...unseen.slice(0, Math.max(0, 10 - seen.length))];
+  },
 
-function getDueWords(profileId) {
-  const sr = getSRData(profileId);
-  const today = todayISO();
-  const d = getProfileData(profileId);
-  const seenWords = [], unseenWords = [];
-  ALL_WORDS.forEach(w => {
-    const entry = sr[w.g];
-    if (entry && entry.nextReview) {
-      if (entry.nextReview <= today) seenWords.push(w);
-    } else {
-      if (d.completed && d.completed.includes(w.lessonId)) unseenWords.push(w);
+  getDueCount(profileId) { return this.getDue(profileId).length; },
+
+  // Get weak words for a specific lesson (for reinforcement)
+  getWeakWords(profileId, lessonId) {
+    const lesson = LESSONS.find(l => l.id === lessonId);
+    if (!lesson) return [];
+    const sr = Store.profile(profileId).sr;
+    return lesson.words.filter(w => !sr[w.g] || sr[w.g].level <= 1);
+  },
+
+  // Record lesson mastery score
+  recordMastery(profileId, lessonId, correct, total) {
+    const d = Store.profile(profileId);
+    if (!d.lessonScores) d.lessonScores = {};
+    const pct = total > 0 ? correct / total : 0;
+    const existing = d.lessonScores[lessonId];
+    if (!existing || pct > existing.pct) {
+      d.lessonScores[lessonId] = { pct, correct, total, date: todayISO() };
     }
-  });
-  return [...seenWords, ...unseenWords.slice(0, Math.max(0, 10 - seenWords.length))];
+  },
+
+  getMastery(profileId, lessonId) {
+    const d = Store.profile(profileId);
+    return d.lessonScores && d.lessonScores[lessonId] ? d.lessonScores[lessonId] : null;
+  },
+
+  needsReinforcement(profileId, lessonId) {
+    const lesson = LESSONS.find(l => l.id === lessonId);
+    const threshold = lesson && lesson.masteryThreshold ? lesson.masteryThreshold : 0.7;
+    const mastery = this.getMastery(profileId, lessonId);
+    return mastery ? mastery.pct < threshold : false;
+  },
+};
+
+/* ═══════════════════════════════════════════════════════
+   AUDIO MANAGER
+   Single source of truth for all audio.
+   Key design:
+   • fetchId cancels stale fetches without blocking UI
+   • Button re-enabled as soon as audio STARTS playing
+   • All handlers via .onclick (never addEventListener)
+   • stop() cancels everything and increments fetchId
+═══════════════════════════════════════════════════════ */
+const AudioMgr = {
+  cache: {},
+  fetchId: 0,
+  current: null,
+
+  async speak(ttsText, btnEl) {
+    // Cancel any in-flight fetch
+    this.fetchId++;
+    const myId = this.fetchId;
+
+    // Stop currently playing audio
+    if (this.current) {
+      try { this.current.pause(); this.current.currentTime = 0; } catch(e) {}
+      this.current = null;
+    }
+
+    if (btnEl) btnEl.disabled = true;
+
+    try {
+      // Use cache if available
+      let b64 = this.cache[ttsText];
+      if (!b64) {
+        const resp = await fetch(
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${CFG.TTS_KEY}`,
+          { method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { text: ttsText },
+              voice: { languageCode: 'gu-IN', name: 'gu-IN-Standard-A', ssmlGender: 'FEMALE' },
+              audioConfig: { audioEncoding: 'MP3', speakingRate: 0.82 }
+            })
+          }
+        );
+        // Bail if a newer call started while we were fetching
+        if (myId !== this.fetchId) return;
+        const data = await resp.json();
+        if (!data.audioContent) throw new Error('No audio returned');
+        b64 = data.audioContent;
+        this.cache[ttsText] = b64;
+      }
+
+      // Bail if newer call or button removed from DOM
+      if (myId !== this.fetchId) return;
+      if (btnEl && !document.contains(btnEl)) return;
+
+      const audio = new Audio('data:audio/mp3;base64,' + b64);
+      this.current = audio;
+
+      // Re-enable button immediately when audio STARTS — not when it ends
+      // This is what fixes the "button stuck disabled" bug across multiple cards
+      if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+
+      audio.onended = () => { if (this.current === audio) this.current = null; };
+      audio.onerror = () => { if (this.current === audio) this.current = null; };
+
+      const p = audio.play();
+      if (p) p.catch(() => {}); // handle autoplay block silently
+
+    } catch(err) {
+      if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
+      console.warn('TTS error:', err.message);
+    }
+  },
+
+  stop() {
+    if (this.current) {
+      try { this.current.pause(); this.current.currentTime = 0; } catch(e) {}
+      this.current = null;
+    }
+    this.fetchId++; // cancel any in-flight fetch
+  },
+};
+
+/* ═══════════════════════════════════════════════════════
+   PRONUNCIATION SCORING
+═══════════════════════════════════════════════════════ */
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i===0?j:j===0?i:0));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+function translit(text) {
+  const map={'ક':'k','ખ':'kh','ગ':'g','ઘ':'gh','ચ':'ch','છ':'chh','જ':'j','ઝ':'jh','ત':'t','થ':'th','દ':'d','ધ':'dh','ન':'n','પ':'p','ફ':'f','બ':'b','ભ':'bh','મ':'m','ય':'y','ર':'r','લ':'l','ળ':'l','વ':'v','શ':'sh','ષ':'sh','સ':'s','હ':'h','ા':'aa','િ':'i','ી':'ee','ુ':'u','ૂ':'oo','ે':'e','ૈ':'ai','ો':'o','ૌ':'au','ં':'n','અ':'a','આ':'aa','ઇ':'i','ઈ':'ee','ઉ':'u','ઊ':'oo','એ':'e','ઓ':'o'};
+  return text.split('').map(c => map[c]||c).join('').replace(/[^\w\s]/g,'').toLowerCase().trim();
+}
+function scorePronu(heard, expectedRoman) {
+  if (!heard || !heard.trim()) return 'nothing';
+  const h = heard.toLowerCase().replace(/[^a-z\u0A80-\u0AFF\s]/g,'').trim();
+  const hR = /[\u0A80-\u0AFF]/.test(h) ? translit(h) : h.replace(/[^a-z\s]/g,'');
+  const e = expectedRoman.toLowerCase().trim();
+  if (hR === e) return 'great';
+  const hW = hR.split(/\s+/), eW = e.split(/\s+/);
+  let hits = 0;
+  eW.forEach(ew => { if (hW.some(hw => hw===ew || levenshtein(hw,ew)<=Math.ceil(ew.length*.35))) hits++; });
+  const ratio = hits / eW.length;
+  if (ratio >= 0.75) return 'great';
+  if (ratio >= 0.4) return 'ok';
+  if (hR.length > 0) return 'retry';
+  return 'nothing';
+}
+const PRONUN_FB = {
+  great: ['🌟 Excellent! Perfect pronunciation!','🌟 Spot on! That sounded great!','🌟 Perfect — you nailed it!'],
+  ok:    ['👍 Good try! Listen and match it more closely.','👍 Getting there — one more try!'],
+  retry: ['🔄 Not quite — listen carefully and try again.','🔄 Keep at it — you can do this!'],
+  nothing:['🎤 Nothing heard — check your mic and speak clearly!','🎤 Speak up — we\'re listening!'],
+};
+function randFB(level) { const a = PRONUN_FB[level]; return a[Math.floor(Math.random()*a.length)]; }
+
+/* ═══════════════════════════════════════════════════════
+   CONFETTI ENGINE
+═══════════════════════════════════════════════════════ */
+const Confetti = {
+  canvas: null, ctx: null,
+  particles: [], animFrame: null,
+
+  init() {
+    this.canvas = document.getElementById('confettiCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    const resize = () => { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; };
+    window.addEventListener('resize', resize);
+    resize();
+  },
+
+  launch(intensity) {
+    const mobile = /Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent);
+    const count = intensity==='mega'?(mobile?120:300):intensity==='big'?(mobile?60:150):(mobile?25:60);
+    const colors = ['#1D9E75','#D4537E','#378ADD','#f4a261','#7F77DD','#ffd700','#ff6b6b','#4ecdc4'];
+    const shapes = ['circle','square','triangle','star'];
+    for (let i=0; i<count; i++) {
+      this.particles.push({
+        x: Math.random()*this.canvas.width,
+        y: -20 - Math.random()*this.canvas.height*.3,
+        vx:(Math.random()-.5)*6, vy:2+Math.random()*5,
+        rot:Math.random()*360, rotV:(Math.random()-.5)*8,
+        size:6+Math.random()*10,
+        color:colors[Math.floor(Math.random()*colors.length)],
+        shape:shapes[Math.floor(Math.random()*shapes.length)],
+        opacity:1, life:1
+      });
+    }
+    if (intensity==='big'||intensity==='mega') {
+      for (let i=0;i<(intensity==='mega'?8:4);i++) {
+        this.particles.push({
+          x:Math.random()*this.canvas.width, y:this.canvas.height+10,
+          vx:(Math.random()-.5)*3, vy:-(8+Math.random()*8),
+          rot:0, rotV:0, size:14,
+          color:colors[Math.floor(Math.random()*colors.length)],
+          shape:'rocket', opacity:1, life:1, trail:[]
+        });
+      }
+    }
+    if (!this.animFrame) this._animate();
+  },
+
+  _animate() {
+    const {ctx, canvas} = this;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    this.particles = this.particles.filter(p => p.opacity > 0.01 && p.y < canvas.height+50);
+    this.particles.forEach(p => {
+      ctx.save(); ctx.globalAlpha = p.opacity;
+      if (p.shape==='rocket') {
+        p.trail.push({x:p.x,y:p.y});
+        if (p.trail.length>12) p.trail.shift();
+        p.trail.forEach((t,i) => {
+          ctx.beginPath(); ctx.arc(t.x,t.y,3*(i/p.trail.length),0,Math.PI*2);
+          ctx.fillStyle=p.color; ctx.globalAlpha=p.opacity*(i/p.trail.length)*.5; ctx.fill();
+        });
+        ctx.globalAlpha=p.opacity;
+        ctx.font=`${p.size}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('🚀',p.x,p.y);
+        p.vy+=.3;
+        if (p.vy>0) { this._burst(p.x,p.y,p.color); p.opacity=0; }
+      } else {
+        ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180); ctx.fillStyle=p.color;
+        if (p.shape==='circle') { ctx.beginPath(); ctx.arc(0,0,p.size/2,0,Math.PI*2); ctx.fill(); }
+        else if (p.shape==='square') { ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size); }
+        else if (p.shape==='triangle') {
+          ctx.beginPath(); ctx.moveTo(0,-p.size/2); ctx.lineTo(p.size/2,p.size/2); ctx.lineTo(-p.size/2,p.size/2); ctx.closePath(); ctx.fill();
+        } else if (p.shape==='star') { this._star(ctx,0,0,5,p.size/2,p.size/4); ctx.fill(); }
+        p.vy+=.12; p.life-=.008; p.opacity=p.life;
+      }
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.rotV;
+      ctx.restore();
+    });
+    if (this.particles.length > 0) this.animFrame = requestAnimationFrame(() => this._animate());
+    else { this.animFrame=null; ctx.clearRect(0,0,canvas.width,canvas.height); }
+  },
+
+  _burst(x,y,color) {
+    const colors=['#ffd700','#ff6b6b','#4ecdc4','#f4a261',color];
+    for (let i=0;i<20;i++) {
+      const angle=(i/20)*Math.PI*2, speed=2+Math.random()*4;
+      this.particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+        rot:0,rotV:5,size:5+Math.random()*6,color:colors[Math.floor(Math.random()*colors.length)],
+        shape:'circle',opacity:1,life:1});
+    }
+  },
+
+  _star(ctx,cx,cy,spikes,oR,iR) {
+    let rot=(Math.PI/2)*3,step=Math.PI/spikes;
+    ctx.beginPath(); ctx.moveTo(cx,cy-oR);
+    for (let i=0;i<spikes;i++) {
+      ctx.lineTo(cx+Math.cos(rot)*oR,cy+Math.sin(rot)*oR); rot+=step;
+      ctx.lineTo(cx+Math.cos(rot)*iR,cy+Math.sin(rot)*iR); rot+=step;
+    }
+    ctx.lineTo(cx,cy-oR); ctx.closePath();
+  },
+};
+
+function celebrate(emoji, text, size) {
+  Confetti.launch(size || 'big');
+  const el = document.createElement('div');
+  el.className = 'celeb-overlay';
+  el.innerHTML = `<div class="celeb-emoji">${emoji}</div><div class="celeb-text">${text}</div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2400);
 }
 
-function getDueCount(profileId) { return getDueWords(profileId).length; }
-
-/* ══════════════════════════════════════════
-   ADAPTIVE REINFORCEMENT
-   If mastery < lesson.masteryThreshold,
-   a reinforcement lesson auto-unlocks.
-══════════════════════════════════════════ */
-function getLessonMastery(profileId, lessonId) {
-  const d = getProfileData(profileId);
-  if (!d.lessonScores) return null;
-  return d.lessonScores[lessonId] || null;
+/* ═══════════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1400);
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function profileEmoji(p, size) {
+  const fs = Math.round((size||44)*.65);
+  return `<span style="font-size:${fs}px;line-height:1;display:inline-block">${p.emoji}</span>`;
+}
+function meta(id) { return PROFILES.find(p => p.id === id); }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
 }
 
-function recordLessonScore(profileId, lessonId, correct, total) {
-  const d = getProfileData(profileId);
-  if (!d.lessonScores) d.lessonScores = {};
-  const pct = total > 0 ? correct / total : 0;
-  // Keep best score
-  const existing = d.lessonScores[lessonId];
-  if (!existing || pct > existing.pct) {
-    d.lessonScores[lessonId] = { pct, correct, total, date: todayISO() };
-  }
-}
-
-function needsReinforcement(profileId, lessonId) {
-  const lesson = LESSONS.find(l => l.id === lessonId);
-  if (!lesson || !lesson.masteryThreshold) return false;
-  const score = getLessonMastery(profileId, lessonId);
-  if (!score) return false;
-  return score.pct < lesson.masteryThreshold;
-}
-
-function getReinforcementWords(profileId, lessonId) {
-  const sr = getSRData(profileId);
-  const lesson = LESSONS.find(l => l.id === lessonId);
-  if (!lesson) return [];
-  // Focus on words the profile got wrong (low SR level)
-  const weak = lesson.words.filter(w => {
-    const entry = sr[w.g];
-    return !entry || entry.level <= 1;
-  });
-  return weak.length >= 3 ? weak : lesson.words;
-}
-
-/* ══════════════════════════════════════════
-   WORD OF THE DAY
-══════════════════════════════════════════ */
-function getWotd() {
-  const dayNum = Math.floor(Date.now() / 86400000);
-  return ALL_WORDS[dayNum % ALL_WORDS.length];
-}
-
+/* ═══════════════════════════════════════════════════════
+   WOTD / CHALLENGE / LEADERBOARD
+═══════════════════════════════════════════════════════ */
 function buildWotd() {
-  const w = getWotd();
-  const section = document.getElementById('wotdSection');
-  section.innerHTML = `
+  const day = Math.floor(Date.now() / 86400000);
+  const w = ALL_WORDS[day % ALL_WORDS.length];
+  const el = document.getElementById('wotdSection');
+  el.innerHTML = `
     <div class="wotd-card">
       <div class="wotd-icon">✨</div>
       <div class="wotd-body">
@@ -1052,28 +1465,17 @@ function buildWotd() {
       </div>
       <button class="wotd-hear" id="wotdBtn">🔊</button>
     </div>`;
-  document.getElementById('wotdBtn').onclick = function() { speakWord(w.tts, this); };
-}
-
-/* ══════════════════════════════════════════
-   FAMILY CHALLENGE
-══════════════════════════════════════════ */
-function getCurrentChallenge() {
-  const weekNum = Math.floor(Date.now() / (7 * 86400000));
-  return LESSONS[weekNum % LESSONS.length];
+  document.getElementById('wotdBtn').onclick = function() { AudioMgr.speak(w.tts, this); };
 }
 
 function buildChallenge() {
-  const lesson = getCurrentChallenge();
-  const section = document.getElementById('challengeSection');
-  const completers = PROFILES.filter(p => {
-    const d = getProfileData(p.id);
-    return d.completed && d.completed.includes(lesson.id);
-  });
+  const week = Math.floor(Date.now() / (7*86400000));
+  const lesson = LESSONS[week % LESSONS.length];
+  const completers = PROFILES.filter(p => (Store.profile(p.id).completed||[]).includes(lesson.id));
   const pct = Math.round((completers.length / PROFILES.length) * 100);
-  section.innerHTML = `
+  document.getElementById('challengeSection').innerHTML = `
     <div class="challenge-card">
-      <div class="challenge-label">🏆 This week's family challenge</div>
+      <div class="challenge-label">🏆 This week\'s family challenge</div>
       <div class="challenge-title">${lesson.icon} Complete "${lesson.name}"</div>
       <div class="challenge-progress">
         <div class="challenge-bar-wrap"><div class="challenge-bar" style="width:${pct}%"></div></div>
@@ -1081,487 +1483,507 @@ function buildChallenge() {
       </div>
       <div class="challenge-profiles">
         ${PROFILES.map(p => {
-          const done = completers.find(c => c.id === p.id);
-          return `<div class="challenge-pip ${done?'done':''}">${profileAvatar(p,18)} ${p.name} ${done?'✓':''}</div>`;
+          const done = completers.find(c => c.id===p.id);
+          return `<div class="challenge-pip ${done?'done':''}">${profileEmoji(p,18)} ${p.name} ${done?'✓':''}</div>`;
         }).join('')}
       </div>
     </div>`;
   if (completers.length === PROFILES.length) {
-    const key = 'challenge_celeb_' + lesson.id;
+    const key = 'chal_' + lesson.id;
     if (!localStorage.getItem(key)) {
       localStorage.setItem(key, '1');
-      setTimeout(() => launchCelebration('🏆', 'Family challenge complete!', 'mega'), 500);
+      setTimeout(() => celebrate('🏆','Family challenge complete!','mega'), 500);
     }
   }
 }
 
-/* ══════════════════════════════════════════
-   LEADERBOARDS
-══════════════════════════════════════════ */
-function getLeaderboardData() {
+function buildLeaderboard(containerId, activeId) {
   const today = new Date();
-  const last10 = Array.from({length:10}, (_,i) => {
-    const d = new Date(today); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10);
+  const last10 = Array.from({length:10},(_,i) => { const d=new Date(today); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10); });
+  const rows = PROFILES.map(p => {
+    const d = Store.profile(p.id);
+    const log = d.activityLog || [];
+    return { p, d, days10: last10.filter(x=>log.includes(x)).length, allDays: log.length };
   });
-  return PROFILES.map(p => {
-    const d = getProfileData(p.id);
-    const log = d.activityLog||[];
-    return { p, d, days10: last10.filter(x=>log.includes(x)).length, allTimeDays: log.length };
-  });
-}
-
-function buildLeaderboardHTML(containerId, activeId) {
-  const rows = getLeaderboardData();
-  const s10  = [...rows].sort((a,b) => b.days10 - a.days10);
-  const sAll = [...rows].sort((a,b) => b.allTimeDays - a.allTimeDays);
+  const s10   = [...rows].sort((a,b) => b.days10 - a.days10);
+  const sAll  = [...rows].sort((a,b) => b.allDays - a.allDays);
   const ri = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-  const card = (title, sorted, vFn) => `<div class="lb-card"><div class="lb-title">${title}</div>${
-    sorted.map((r,i) => `<div class="lb-row"><div class="lb-rank">${ri(i)}</div><div class="lb-emoji">${profileAvatar(r.p,24)}</div><div class="lb-info"><div class="lb-pname">${r.p.name}</div><div class="lb-val${r.p.id===activeId?' hi':''}">${vFn(r)}</div></div></div>`).join('')
-  }</div>`;
+  const card = (title, sorted, vFn) => `
+    <div class="lb-card"><div class="lb-title">${title}</div>${
+      sorted.map((r,i) => `<div class="lb-row">
+        <div class="lb-rank">${ri(i)}</div>
+        <div class="lb-emoji">${profileEmoji(r.p,24)}</div>
+        <div class="lb-info">
+          <div class="lb-pname">${r.p.name}</div>
+          <div class="lb-val${r.p.id===activeId?' hi':''}">${vFn(r)}</div>
+        </div>
+      </div>`).join('')
+    }</div>`;
   document.getElementById(containerId).innerHTML =
-    card('🔥 Last 10 days', s10, r=>`${r.days10}/10 days`) +
-    card('📅 All-time days', sAll, r=>`${r.allTimeDays} day${r.allTimeDays!==1?'s':''}`);
+    card('🔥 Last 10 days', s10, r=>`${r.days10}/10`) +
+    card('📅 All-time', sAll, r=>`${r.allDays} day${r.allDays!==1?'s':''}`);
 }
 
-/* ══════════════════════════════════════════
-   BHOLU on login screen
-══════════════════════════════════════════ */
-function buildBholuSection() {
-  // Show the most-progressed family member's Bholu
-  // (or the family's collective Bholu if we pool completions)
-  const allCompleted = new Set(
-    PROFILES.flatMap(p => getProfileData(p.id).completed || [])
-  );
+function buildBholuLogin() {
+  const allCompleted = new Set(PROFILES.flatMap(p => Store.profile(p.id).completed || []));
   const items = getBholuItems([...allCompleted]);
+  const el = document.getElementById('bholuSection');
+  if (!el) return;
   if (items.length === 0) {
-    document.getElementById('bholuSection').innerHTML = `
-      <div style="text-align:center;padding:12px 0 4px;">
-        <div style="font-size:48px">😊</div>
-        <div style="font-size:13px;color:#888;margin-top:4px;">Complete Stage 1 to dress up Bholu!</div>
-      </div>`;
+    el.innerHTML = `<div class="bholu-section"><div style="font-size:48px">😊</div><div class="bholu-label">Complete Stage 1 to dress up Bholu!</div></div>`;
     return;
   }
-  const bholuHtml = renderBholu([...allCompleted], 72);
-  const itemNames = items.map(i => i.emoji + ' ' + i.item).join('  ');
-  document.getElementById('bholuSection').innerHTML = `
-    <div style="text-align:center;padding:12px 0 4px;">
-      <div style="font-size:13px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Bholu's wardrobe</div>
-      ${bholuHtml}
-      <div style="font-size:12px;color:#888;margin-top:6px;">${itemNames}</div>
+  el.innerHTML = `<div class="bholu-section">
+    <div class="bholu-label">Bholu\'s wardrobe</div>
+    ${renderBholu([...allCompleted], 68)}
+    <div style="font-size:12px;color:#888;margin-top:4px">${items.map(i=>i.emoji+' '+i.label).join(' · ')}</div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LOGIN SCREEN
+═══════════════════════════════════════════════════════ */
+function buildLogin() {
+  buildBholuLogin();
+  buildWotd();
+  buildChallenge();
+  buildLeaderboard('loginLbGrid', null);
+
+  const grid = document.getElementById('profileGrid');
+  grid.innerHTML = '';
+  PROFILES.forEach(p => {
+    const d = Store.profile(p.id);
+    const due = SR.getDueCount(p.id);
+    const todayS = todayISO();
+    const yestS = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const atRisk = d.streak > 0 && d.lastDate !== todayS && d.lastDate !== yestS;
+    const items = getBholuItems(d.completed || []);
+
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.innerHTML = `
+      ${atRisk ? '<div class="streak-risk">🔥 At risk!</div>' : ''}
+      ${due > 0 ? `<div class="review-badge">📚 ${due} due</div>` : ''}
+      <div class="profile-avatar">${profileEmoji(p, 44)}</div>
+      <div class="profile-name">${p.name}</div>
+      <div class="profile-xp">⭐ ${d.xp||0} XP · ${getLevel(d.xp||0).icon} ${getLevel(d.xp||0).name}</div>
+      <div class="profile-streak" style="color:${d.streak>0?'#e85d04':'#ccc'}">${d.streak>0?'🔥 '+d.streak+' day streak':'No streak yet'}</div>
+      ${items.length > 0 ? `<div style="font-size:11px;color:#1D9E75;font-weight:600;margin-top:4px">${items.map(i=>i.emoji).join('')} Bholu dressed up!</div>` : ''}
+    `;
+    card.onclick = () => selectProfile(p.id);
+    grid.appendChild(card);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   PIN SCREEN
+═══════════════════════════════════════════════════════ */
+let _pinBuf = '', _pinMode = 'entry', _pinFirst = '', _pinProfileId = null;
+
+function selectProfile(id) {
+  _pinProfileId = id;
+  const d = Store.profile(id);
+  if (d.pin === null || d.pin === undefined) {
+    _pinMode = 'setup1'; _pinBuf = ''; _pinFirst = '';
+    _renderPin('Choose a 4-digit PIN', 'Step 1 of 2', false);
+  } else {
+    _pinMode = 'entry'; _pinBuf = '';
+    _renderPin('Enter your PIN', '', false);
+  }
+  showScreen('pinScreen');
+}
+
+function _renderPin(label, step, shake) {
+  const p = meta(_pinProfileId);
+  document.getElementById('pinWrap').innerHTML = `
+    <div class="pin-avatar-emoji">${profileEmoji(p, 64)}</div>
+    <div class="pin-name">${p.name}</div>
+    ${step ? `<div class="pin-step">${step}</div>` : ''}
+    <div class="pin-label">${label}</div>
+    <div class="pin-dots">${[0,1,2,3].map(()=>`<div class="pin-dot${shake?' wrong':''}"></div>`).join('')}</div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">${[1,2,3,4,5,6,7,8,9,'','0','⌫'].map(k =>
+      `<button class="pin-key${k==='⌫'?' del':''}" onclick="pinKey('${k}')" ${k===''?'style="visibility:hidden"':''}>${k}</button>`
+    ).join('')}</div>
+    <button class="back-link" onclick="doLogout()">← Back to profiles</button>`;
+}
+
+function pinKey(k) {
+  if (k === '⌫') _pinBuf = _pinBuf.slice(0, -1);
+  else if (k !== '' && _pinBuf.length < 4) _pinBuf += k;
+  document.querySelectorAll('.pin-dot').forEach((d,i) => {
+    d.className = 'pin-dot' + (i < _pinBuf.length ? ' filled' : '');
+  });
+  if (_pinBuf.length === 4) setTimeout(_handlePin, 130);
+}
+
+function _handlePin() {
+  const d = Store.profile(_pinProfileId);
+  if (_pinMode === 'setup1') {
+    _pinFirst = _pinBuf; _pinBuf = ''; _pinMode = 'setup2';
+    _renderPin('Confirm your PIN', 'Step 2 of 2', false);
+  } else if (_pinMode === 'setup2') {
+    if (_pinBuf === _pinFirst) {
+      d.pin = _pinBuf;
+      Store.save(_pinProfileId);
+      enterHome(_pinProfileId);
+    } else {
+      _pinBuf = ''; _pinFirst = ''; _pinMode = 'setup1';
+      _renderPin('Choose a 4-digit PIN', 'Step 1 of 2', true);
+      setTimeout(() => { const e=document.getElementById('pinError'); if(e) e.textContent="PINs didn\'t match — try again"; }, 50);
+    }
+  } else {
+    if (_pinBuf === d.pin) {
+      // Enter home immediately (no blocking), sync in background
+      enterHome(_pinProfileId);
+      Store.syncFromAPI(_pinProfileId).then(() => {
+        // Refresh home stats silently if still on home screen
+        if (document.getElementById('homeScreen').classList.contains('active')) {
+          refreshHomeStats();
+          buildLessonList();
+        }
+      });
+    } else {
+      _pinBuf = '';
+      _renderPin('Enter your PIN', '', true);
+      setTimeout(() => { const e=document.getElementById('pinError'); if(e) e.textContent='Wrong PIN — try again'; }, 50);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HOME SCREEN
+═══════════════════════════════════════════════════════ */
+let _currentProfileId = null;
+
+function enterHome(profileId) {
+  _currentProfileId = profileId;
+  const p = meta(profileId);
+  const d = Store.profile(profileId);
+
+  // Streak logic (ISO dates only — no timezone bugs)
+  const todayS = todayISO();
+  const yestS = new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const prevStreak = d.streak;
+  if (d.lastDate !== todayS) {
+    d.streak = (d.lastDate === yestS) ? d.streak + 1 : 1;
+    d.lastDate = todayS;
+    if (!(d.activityLog||[]).includes(todayS)) d.activityLog.push(todayS);
+    Store.save(profileId);
+  }
+
+  // Streak milestones
+  if (d.streak !== prevStreak) {
+    if (d.streak === 3)  setTimeout(() => celebrate('🔥','3-day streak!','big'), 400);
+    if (d.streak === 7)  setTimeout(() => celebrate('🚀','7-day streak! One week!','mega'), 400);
+    if (d.streak === 14) setTimeout(() => celebrate('⭐','2-week streak!','mega'), 400);
+    if (d.streak === 30) setTimeout(() => celebrate('👑','30-day streak! Amazing!','mega'), 400);
+  }
+
+  document.getElementById('homeAvatar').innerHTML = profileEmoji(p, 38);
+  document.getElementById('homeName').textContent = 'Hi, ' + p.name + '!';
+  document.getElementById('logoutBtn').onclick = doLogout;
+
+  // Bholu on home screen
+  const bholuWrap = document.getElementById('homeBholuWrap');
+  if (bholuWrap) bholuWrap.innerHTML = renderBholu(d.completed||[], 56);
+
+  refreshHomeStats();
+  buildReviewSection();
+  buildLessonList();
+
+  // Warm up API and trigger AI generation in background
+  fetch(CFG.API_BASE + '/v1/leaderboard', { headers:{'X-Api-Key':CFG.APP_KEY} }).catch(() => {});
+  Store.maybeGenerateLesson(profileId);
+
+  showScreen('homeScreen');
+}
+
+function refreshHomeStats() {
+  if (!_currentProfileId) return;
+  const d = Store.profile(_currentProfileId);
+  const xp = d.xp || 0;
+  const lv = getLevel(xp), nextLv = getNextLevel(xp);
+  document.getElementById('statXP').textContent = xp;
+  document.getElementById('statStreak').textContent = d.streak || 0;
+  document.getElementById('statWords').textContent = (d.completed||[]).reduce((a,id) => {
+    const l = LESSONS.find(x => x.id===id); return a + (l ? l.words.length : 0);
+  }, 0);
+  const lvEl = document.getElementById('levelBadge');
+  if (lvEl) {
+    lvEl.textContent = `${lv.icon} ${lv.name}`;
+    lvEl.title = nextLv ? `${xp - lv.min} / ${nextLv.min - lv.min} XP to ${nextLv.name}` : 'Max level!';
+  }
+}
+
+function buildReviewSection() {
+  const due = SR.getDue(_currentProfileId);
+  const el = document.getElementById('reviewSection');
+  if (due.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="review-card" id="reviewCard">
+      <div class="review-icon">🧠</div>
+      <div class="review-info">
+        <div class="review-title">Daily Review — ${due.length} word${due.length!==1?'s':''} due</div>
+        <div class="review-sub">Spaced repetition keeps words fresh in memory</div>
+      </div>
+      <div class="review-arrow">→</div>
     </div>`;
+  document.getElementById('reviewCard').onclick = startReview;
 }
 
-/* ══════════════════════════════════════════
-   API CONFIG — set these after deploying
-   the Cloud Function (see DEPLOY_INSTRUCTIONS.md)
-══════════════════════════════════════════ */
-const API_BASE    = 'https://gujaratiapi-jg5pnhp7aa-uc.a.run.app';
-const APP_API_KEY = 'guj-parikh-2026';
+function buildLessonList() {
+  const d = Store.profile(_currentProfileId);
+  const completed = d.completed || [];
+  const list = document.getElementById('lessonList');
+  list.innerHTML = '';
 
-async function apiGet(path) {
-  if (!API_BASE) return null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
-    const r = await fetch(API_BASE + path, {
-      headers: { 'X-Api-Key': APP_API_KEY },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    return r.json();
-  } catch(e) {
-    if (e.name !== 'AbortError') console.warn('API GET failed:', path, e);
-    return null;
-  }
-}
+  STAGES.forEach(stage => {
+    const stageLessons = LESSONS.filter(l => l.stage === stage.num);
+    if (!stageLessons.length) return;
 
-async function apiPost(path, body) {
-  if (!API_BASE) return null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch(API_BASE + path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': APP_API_KEY },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    return r.json();
-  } catch(e) {
-    if (e.name !== 'AbortError') console.warn('API POST failed:', path, e);
-    return null;
-  }
-}
+    // Unlock stage if previous stage is fully done (stage 1 always open)
+    const prevDone = stage.num === 1 || LESSONS.filter(l=>l.stage===stage.num-1).every(l=>completed.includes(l.id));
+    const stageComplete = stageLessons.every(l => completed.includes(l.id));
+    const bholuItem = BHOLU_ITEMS.find(b => b.stage === stage.num);
 
-/* ══════════════════════════════════════════
-   AI-GENERATED LESSONS
-   Fetched from API, stored in aiLessons[]
-   Shown at bottom of lesson list
-══════════════════════════════════════════ */
-let aiLessons = [];
+    // Stage header
+    const header = document.createElement('div');
+    header.style.cssText = `font-size:11px;font-weight:700;color:${stage.color};text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 6px;display:flex;align-items:center;gap:6px`;
+    header.innerHTML = `<span>Stage ${stage.num} — ${stage.name}</span>${stageComplete && bholuItem ? `<span style="font-size:14px">${bholuItem.emoji}</span>` : ''}`;
+    list.appendChild(header);
 
-async function fetchAILessons(profileId) {
-  if (!API_BASE) return;
-  const res = await apiGet('/v1/lessons/generated/' + profileId);
-  if (res && res.lessons) {
-    aiLessons = res.lessons;
-    // Also add them to ALL_WORDS for SR and WOTD
-    res.lessons.forEach(l => {
-      if (!l.words) return;
-      l.words.forEach(w => {
-        if (!ALL_WORDS.find(x => x.g === w.g)) {
-          ALL_WORDS.push({ ...w, lessonId: l.id });
-        }
-      });
-    });
-  }
-}
+    stageLessons.forEach((lesson, idx) => {
+      const done = completed.includes(lesson.id);
+      const locked = !prevDone || (idx > 0 && !completed.includes(stageLessons[idx-1].id));
+      const needsReinf = done && SR.needsReinforcement(_currentProfileId, lesson.id);
+      const mastery = SR.getMastery(_currentProfileId, lesson.id);
+      const hasTpr = lesson.words.some(w => w.tpr);
+      const isAI = lesson._ai;
 
-async function markAILessonComplete(firestoreId, score) {
-  if (!API_BASE || !firestoreId) return;
-  await apiPost('/v1/lessons/complete/' + currentProfileId, { firestoreId, score });
-}
+      const row = document.createElement('div');
+      row.className = 'lesson-row' + (locked ? ' locked' : '');
+      row.innerHTML = `
+        <div class="l-icon">${lesson.icon}</div>
+        <div class="l-info">
+          <div class="l-name">${lesson.name}
+            ${hasTpr ? '<span style="font-size:10px;background:#FFF5F0;color:#993C1D;padding:2px 6px;border-radius:99px;font-weight:600;vertical-align:middle;margin-left:4px">🏃 TPR</span>' : ''}
+            ${isAI ? '<span style="font-size:10px;background:#EEEDFE;color:#3C3489;padding:2px 6px;border-radius:99px;font-weight:600;vertical-align:middle;margin-left:4px">✨ AI</span>' : ''}
+          </div>
+          <div class="l-desc">${lesson.desc}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          <div class="l-badge ${done?'done':''}">${done?'✓ Done'+(mastery?` · ${Math.round(mastery.pct*100)}%`:''):locked?'🔒':'Start →'}</div>
+          ${needsReinf ? '<div style="font-size:10px;background:#FAEEDA;color:#633806;padding:2px 7px;border-radius:99px;font-weight:600">⚡ Reinforce</div>' : ''}
+        </div>`;
 
-async function triggerAILessonGeneration() {
-  if (!API_BASE) return;
-  // Only generate if fewer than 2 pending
-  if (aiLessons.filter(l => !l.completed).length < 2) {
-    apiPost('/v1/lessons/generate/' + currentProfileId, {}).catch(() => {});
-  }
-}
-
-/* ══════════════════════════════════════════
-   STATE  — PIN-separated from API data
-══════════════════════════════════════════ */
-let allData = {}, currentProfileId = null;
-const audioB64Cache = {};
-
-function savePins() {
-  const pins = {};
-  PROFILES.forEach(p => { pins[p.id] = (allData[p.id] && allData[p.id].pin) || null; });
-  try { localStorage.setItem('guj_pins', JSON.stringify(pins)); } catch(e) {}
-}
-function loadPins() {
-  try { return JSON.parse(localStorage.getItem('guj_pins') || '{}'); } catch(e) { return {}; }
-}
-
-function loadData() {
-  try { allData = JSON.parse(localStorage.getItem('guj_v5') || '{}'); } catch(e) { allData = {}; }
-  const pins = loadPins();
-  PROFILES.forEach(p => {
-    if (!allData[p.id]) allData[p.id] = {};
-    allData[p.id].pin = pins[p.id] || null;
-  });
-  // Migrations
-  PROFILES.forEach(p => {
-    const d = allData[p.id];
-    if (!d || !d.completed) return;
-    if (d.completed.includes('phrases') && !d.completed.includes('s2_daily'))
-      d.completed.push('s2_daily');
-    if (d.completed.includes('greetings') && !d.completed.includes('s1_greetings'))
-      d.completed.push('s1_greetings');
-    if (d.completed.includes('family') && !d.completed.includes('s1_family'))
-      d.completed.push('s1_family');
-    // Map all old IDs to new IDs
-    const idMap = {
-      'numbers':'s1_nums1','colors':'s1_colors','food':'s1_food',
-      'animals':'s1_animals','body':'s1_body','emotions':'s1_feelings',
-      'clothes':'s1_clothes','home':'s1_home','verbs':'s1_verbs1',
-      'days':'s1_days','weather':'s1_weather','daily_phrases':'s2_daily',
-      'i_want':'s2_iwant','this_is':'s2_thisis','adjectives':'s2_describe',
-      'where_is':'s2_where','ba_dada_call':'s4_ba_dada',
-      'at_dinner':'s4_dinner','morning_routine':'s4_morning',
-    };
-    Object.entries(idMap).forEach(([old, newId]) => {
-      if (d.completed.includes(old) && !d.completed.includes(newId))
-        d.completed.push(newId);
+      if (!locked) {
+        row.onclick = () => needsReinf ? startReinforcement(lesson) : startLesson(lesson);
+      }
+      list.appendChild(row);
     });
   });
 }
 
-function saveData() {
-  savePins();
-  // 1. localStorage immediately (offline-safe)
-  const forStorage = {};
-  PROFILES.forEach(p => {
-    if (!allData[p.id]) return;
-    const { pin, ...progress } = allData[p.id];
-    forStorage[p.id] = progress;
-  });
-  try { localStorage.setItem('guj_v5', JSON.stringify(forStorage)); } catch(e) {}
-
-  // 2. Push to API (non-blocking, retry on fail)
-  if (currentProfileId && allData[currentProfileId]) {
-    const { pin, ...progress } = allData[currentProfileId];
-    const hasData = (progress.xp > 0) || (progress.completed && progress.completed.length > 0) ||
-                    (progress.streak > 0) || (progress.activityLog && progress.activityLog.length > 0);
-    if (hasData) {
-      apiPost('/v1/scores/' + currentProfileId, progress)
-        .then(r => { if (!r || r.error) throw new Error(r?.error || 'no response'); })
-        .catch(err => {
-          setTimeout(() => apiPost('/v1/scores/' + currentProfileId, progress).catch(()=>{}), 3000);
-        });
-    }
-  }
+function doLogout() {
+  AudioMgr.stop();
+  _currentProfileId = null;
+  buildLogin();
+  showScreen('loginScreen');
 }
 
-async function syncProfileFromAPI(profileId) {
-  try {
-    const res = await apiGet('/v1/scores/' + profileId);
-    if (res && res.scores) {
-      const remote = res.scores;
-      const pin = allData[profileId] ? allData[profileId].pin : null;
-      const localXP = (allData[profileId] && allData[profileId].xp) || 0;
-      if (localXP > (remote.xp || 0)) remote.xp = localXP;
-      // Migrate old lesson ids
-      if (remote.completed && remote.completed.includes('phrases') && !remote.completed.includes('s2_daily'))
-        remote.completed.push('s2_daily');
-      allData[profileId] = { ...remote, pin };
-      const forStorage = {};
-      PROFILES.forEach(p => {
-        if (!allData[p.id]) return;
-        const { pin: _p, ...prog } = allData[p.id];
-        forStorage[p.id] = prog;
-      });
-      try { localStorage.setItem('guj_v5', JSON.stringify(forStorage)); } catch(e) {}
-    }
-  } catch(err) { console.warn('API sync failed, using cache:', err); }
-  // Also fetch AI lessons for this profile
-  await fetchAILessons(profileId);
-}
+/* ═══════════════════════════════════════════════════════
+   LESSON ENGINE
+   Question types:
+   • listen — hear + repeat into mic
+   • pick   — multiple choice
+═══════════════════════════════════════════════════════ */
+let _lesson = null;
+let _questions = [];
+let _qIdx = 0;
+let _sessXP = 0;
+let _sessCorrect = 0;
+let _mode = 'lesson'; // 'lesson' | 'review' | 'reinforce'
 
-function getProfileData(id) {
-  if (!allData[id]) allData[id] = { pin:null, xp:0, streak:0, lastDate:'', completed:[], activityLog:[], sr:{}, lessonScores:{} };
-  if (!allData[id].activityLog) allData[id].activityLog = [];
-  if (!allData[id].sr) allData[id].sr = {};
-  if (!allData[id].lessonScores) allData[id].lessonScores = {};
-  return allData[id];
-}
-function currentData() { return getProfileData(currentProfileId); }
-function meta(id) { return PROFILES.find(p=>p.id===id); }
-function todayISO() { return new Date().toISOString().slice(0,10); }
-
-function stopAudio() {
-  if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime=0; } catch(e){} currentAudio=null; }
-  currentFetchId++; // cancel any in-flight fetch
-}
-
-function logout() { stopAudio(); currentProfileId=null; buildLogin(); showScreen('loginScreen'); }
-function goHome() { stopAudio(); updateHomeStats(); buildReviewSection(); updateLessons(); showScreen('homeScreen'); }
-
-/* ══════════════════════════════════════════
-   AUDIO
-   Key design:
-   - audioB64Cache: never re-fetches same text
-   - currentAudio: stopped before each new play
-   - fetchId: cancels stale fetches only (not stale re-enables)
-   - btn disabled only while fetching, re-enabled as soon as audio starts playing
-══════════════════════════════════════════ */
-let currentAudio = null;
-let currentFetchId = 0; // only used to cancel in-flight fetches, not to guard re-enable
-
-async function speakWord(ttsText, btnEl) {
-  // Stop whatever is playing right now
-  if (currentAudio) {
-    try { currentAudio.pause(); currentAudio.currentTime = 0; } catch(e){}
-    currentAudio = null;
-  }
-
-  // Grab a fetch token — if a newer call arrives while we're fetching, we bail
-  currentFetchId++;
-  const myFetchId = currentFetchId;
-
-  if (btnEl) btnEl.disabled = true;
-
-  try {
-    let b64 = audioB64Cache[ttsText];
-    if (!b64) {
-      const resp = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${TTS_API_KEY}`,
-        { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            input: { text: ttsText },
-            voice: { languageCode:'gu-IN', name:'gu-IN-Standard-A', ssmlGender:'FEMALE' },
-            audioConfig: { audioEncoding:'MP3', speakingRate:0.82 }
-          })
-        }
-      );
-      const data = await resp.json();
-      if (!data.audioContent) throw new Error('No audio returned — check API key');
-      b64 = data.audioContent;
-      audioB64Cache[ttsText] = b64;
-    }
-
-    // If a newer fetch started while we were waiting, silently bail
-    if (myFetchId !== currentFetchId) return;
-    // If button was removed from DOM (card changed), silently bail
-    if (btnEl && !document.contains(btnEl)) return;
-
-    const audio = new Audio('data:audio/mp3;base64,' + b64);
-    currentAudio = audio;
-
-    // Re-enable button immediately when audio starts — don't wait for onended
-    // This is the key fix: button is usable again as soon as sound starts
-    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
-
-    audio.onended = () => { if (currentAudio === audio) currentAudio = null; };
-    audio.onerror = () => { if (currentAudio === audio) currentAudio = null; };
-
-    const playPromise = audio.play();
-    if (playPromise) playPromise.catch(err => {
-      // Autoplay blocked — re-enable button so user can tap manually
-      if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
-    });
-
-  } catch(err) {
-    if (btnEl && document.contains(btnEl)) btnEl.disabled = false;
-    console.error('TTS error:', err.message);
-    alert('Audio error: ' + err.message);
-  }
-}
-
-/* ══════════════════════════════════════════
-   PRONUNCIATION SCORING
-══════════════════════════════════════════ */
-function levenshtein(a,b) {
-  const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
-  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++) dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
-  return dp[m][n];
-}
-function basicTranslit(text) {
-  const map={'ક':'k','ખ':'kh','ગ':'g','ઘ':'gh','ચ':'ch','છ':'chh','જ':'j','ઝ':'jh','ત':'t','થ':'th','દ':'d','ધ':'dh','ન':'n','પ':'p','ફ':'f','બ':'b','ભ':'bh','મ':'m','ય':'y','ર':'r','લ':'l','ળ':'l','વ':'v','શ':'sh','ષ':'sh','સ':'s','હ':'h','ા':'aa','િ':'i','ી':'ee','ુ':'u','ૂ':'oo','ે':'e','ૈ':'ai','ો':'o','ૌ':'au','ં':'n','અ':'a','આ':'aa','ઇ':'i','ઈ':'ee','ઉ':'u','ઊ':'oo','એ':'e','ઓ':'o'};
-  return text.split('').map(c=>map[c]||c).join('').replace(/[^\w\s]/g,'').toLowerCase().trim();
-}
-function scorePronu(heard, expectedRoman) {
-  if (!heard||!heard.trim()) return {level:'nothing'};
-  const h = heard.toLowerCase().replace(/[^a-z\u0A80-\u0AFF\s]/g,'').trim();
-  const hR = /[\u0A80-\u0AFF]/.test(h) ? basicTranslit(h) : h.replace(/[^a-z\s]/g,'');
-  const e = expectedRoman.toLowerCase().trim();
-  if (hR===e) return {level:'great'};
-  const hW=hR.split(/\s+/), eW=e.split(/\s+/);
-  let hits=0;
-  eW.forEach(ew => { if(hW.some(hw=>hw===ew||levenshtein(hw,ew)<=Math.ceil(ew.length*0.35))) hits++; });
-  const ratio=hits/eW.length;
-  if (ratio>=0.75) return {level:'great'};
-  if (ratio>=0.4)  return {level:'ok'};
-  if (hR.length>0) return {level:'retry'};
-  return {level:'nothing'};
-}
-const FB_MSGS = {
-  great:  ['🌟 Excellent! That sounded great!','🌟 Perfect — you nailed it!','🌟 Spot on!'],
-  ok:     ['👍 Good try! Listen again and match it more closely.','👍 Getting there — try once more!'],
-  retry:  ['🔄 Not quite — listen carefully and try again.','🔄 Keep at it — you can do this!'],
-  nothing:['🎤 We didn\'t hear anything. Check your mic and speak clearly!','🎤 Speak up — we\'re listening!'],
-};
-function randFB(level) { const a=FB_MSGS[level]; return a[Math.floor(Math.random()*a.length)]; }
-
-/* ══════════════════════════════════════════
-   LESSON + REVIEW ENGINE
-══════════════════════════════════════════ */
-let curLesson=null, curQ=0, questions=[], sessXP=0, sessCorrect=0, isReview=false;
-
-function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
-
-function buildQuestions(words, allWordsPool) {
+function _buildQuestions(words) {
   const qs = [];
-  words.forEach(w => qs.push({type:'listen', word:w}));
+  // Each word gets one listen card
+  words.forEach(w => qs.push({ type:'listen', word:w }));
+  // Each word gets one pick card (if enough words in pool for distractors)
   words.forEach(w => {
-    const others = shuffle(allWordsPool.filter(x=>x.g!==w.g)).slice(0,3);
-    if (others.length < 3) return; // skip pick if not enough words
-    qs.push({type:'pick', word:w, choices:shuffle([w,...others])});
+    const others = shuffle(ALL_WORDS.filter(x => x.g !== w.g)).slice(0, 3);
+    if (others.length >= 3) qs.push({ type:'pick', word:w, choices:shuffle([w,...others]) });
   });
   return shuffle(qs).slice(0, Math.min(10, qs.length));
 }
 
 function startLesson(lesson) {
-  isReview = false;
-  curLesson = lesson;
-  curQ = 0;
-  questions = buildQuestions(lesson.words, ALL_WORDS);
-  sessXP = 0; sessCorrect = 0;
-  showScreen('lessonScreen'); renderQ();
+  _lesson = lesson; _mode = 'lesson';
+  _questions = _buildQuestions(lesson.words);
+  _qIdx = 0; _sessXP = 0; _sessCorrect = 0;
+  showScreen('lessonScreen');
+  _renderQ();
+}
+
+function startReinforcement(lesson) {
+  _lesson = lesson; _mode = 'reinforce';
+  const weak = SR.getWeakWords(_currentProfileId, lesson.id);
+  const words = weak.length >= 3 ? weak : lesson.words;
+  _questions = _buildQuestions(words);
+  _qIdx = 0; _sessXP = 0; _sessCorrect = 0;
+  showScreen('lessonScreen');
+  _renderQ();
 }
 
 function startReview() {
-  isReview = true;
-  curLesson = null;
-  const due = getDueWords(currentProfileId).slice(0, 10);
-  if (due.length===0) { goHome(); return; }
-  curQ = 0;
-  questions = buildQuestions(due, ALL_WORDS);
-  sessXP = 0; sessCorrect = 0;
-  showScreen('lessonScreen'); renderQ();
+  _lesson = null; _mode = 'review';
+  const due = SR.getDue(_currentProfileId).slice(0, 10);
+  if (!due.length) { enterHome(_currentProfileId); return; }
+  _questions = _buildQuestions(due);
+  _qIdx = 0; _sessXP = 0; _sessCorrect = 0;
+  showScreen('lessonScreen');
+  _renderQ();
 }
 
-function renderQ() {
-  const q = questions[curQ];
-  document.getElementById('progressFill').style.width = Math.round((curQ/questions.length)*100)+'%';
-  document.getElementById('progLabel').textContent = curQ+' / '+questions.length;
+function _renderQ() {
+  const q = _questions[_qIdx];
+  const pct = Math.round((_qIdx / _questions.length) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progLabel').textContent = _qIdx + ' / ' + _questions.length;
   document.getElementById('nextBtn').className = 'next-btn';
-  q.type==='listen' ? renderListen(document.getElementById('qCard'),q) : renderPick(document.getElementById('qCard'),q);
+  document.getElementById('nextBtn').onclick = _nextQ;
+  document.getElementById('backBtn').onclick = () => { AudioMgr.stop(); enterHome(_currentProfileId); };
+
+  if (q.type === 'listen') _renderListen(q);
+  else _renderPick(q);
 }
 
-function renderListen(card, q) {
+function _renderListen(q) {
   const w = q.word;
-  const hasTpr = !!w.tpr;
+  const modeLabel = _mode==='review' ? 'Review: ' : _mode==='reinforce' ? '⚡ Reinforce: ' : '';
+  const typeLabel = w.tpr ? 'Listen, Act & Repeat' : 'Listen & Repeat';
+  const card = document.getElementById('qCard');
   card.innerHTML = `
-    <div class="q-type">${isReview?'Review: ':''}${hasTpr?'Listen, Act & Repeat':'Listen &amp; Repeat'}</div>
+    <div class="q-type">${modeLabel}${typeLabel}</div>
+    ${w.img ? `<div class="word-img">${w.img}</div>` : ''}
     <div class="guj-big">${w.g}</div>
     <div class="roman">${w.r}</div>
     <div class="english">${w.e}</div>
-    ${hasTpr ? `<div style="background:#FFF5F0;border:1.5px solid #F09595;border-radius:12px;padding:12px 14px;text-align:center;margin-bottom:10px;font-size:15px;font-weight:600;color:#993C1D;">🏃 ${w.tpr}</div>` : ''}
-    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}">🔊 Hear it</button>
+    ${w.tpr ? `<div class="tpr-box">🏃 ${w.tpr}</div>` : ''}
+    <button class="listen-btn" id="listenBtn">🔊 Hear it</button>
     <div class="mic-section">
-      <button class="mic-btn" id="micBtn">🎤 ${isMobile() ? 'Tap to say it' : 'Now say it out loud'}</button>
+      <button class="mic-btn" id="micBtn">🎤 ${/Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent)?'Tap to say it':'Now say it out loud'}</button>
       <div class="pronun-result" id="pronunResult"></div>
-      <div class="mic-required-note" id="micNote">You must say it before continuing</div>
+      <div class="mic-note" id="micNote">Say it before continuing</div>
     </div>`;
-  // Use onclick (not addEventListener) so reassignment in doRecord doesn't stack
-  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
-  document.getElementById('micBtn').onclick = function() { doRecord(w.roman, w); };
-  // Auto-play
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
-  // Auto-show Continue after 2.8s but record word as 'seen' so SR doesn't get stuck
+
+  // Use onclick assignment — NEVER addEventListener — prevents stacking
+  document.getElementById('listenBtn').onclick = function() { AudioMgr.speak(w.tts, this); };
+  document.getElementById('micBtn').onclick = () => _doRecord(w.roman, w);
+
+  // Auto-play after short delay
+  setTimeout(() => {
+    const btn = document.getElementById('listenBtn');
+    if (btn) AudioMgr.speak(w.tts, btn);
+  }, 600);
+
+  // Auto-show Continue after 2.8s — also records word as 'seen' in SR
+  // so it enters the review cycle even if user skips mic
   setTimeout(() => {
     const nb = document.getElementById('nextBtn');
-    if (nb && nb.className === 'next-btn') {
-      // User hasn't attempted mic yet — record as neutral (not correct, not wrong)
-      // so word enters SR cycle and doesn't stay permanently 'unseen'
-      const sr = getSRData(currentProfileId);
-      if (!sr[w.g]) {
-        recordWordResult(currentProfileId, w.g, false);
-      }
+    if (nb && !nb.classList.contains('show')) {
+      const sr = Store.profile(_currentProfileId).sr;
+      if (!sr[w.g]) SR.record(_currentProfileId, w.g, false);
       nb.className = 'next-btn show';
     }
   }, 2800);
 }
 
-function isMobileSafari() {
-  const ua = navigator.userAgent;
-  return /iP(hone|od|ad)/.test(ua) && /WebKit/.test(ua) && !/CriOS/.test(ua) && !/FxiOS/.test(ua);
+function _renderPick(q) {
+  const w = q.word;
+  const modeLabel = _mode==='review' ? 'Review: ' : _mode==='reinforce' ? '⚡ Reinforce: ' : '';
+  const card = document.getElementById('qCard');
+  card.innerHTML = `
+    <div class="q-type">${modeLabel}What does this mean?</div>
+    ${w.img ? `<div class="word-img">${w.img}</div>` : ''}
+    <div class="guj-big">${w.g}</div>
+    <div class="roman">${w.r}</div>
+    <button class="listen-btn" id="listenBtn" style="margin-bottom:.75rem">🔊 Hear it</button>
+    <div class="choices" id="choicesEl"></div>
+    <div class="pick-feedback" id="pickFb"></div>`;
+
+  document.getElementById('listenBtn').onclick = function() { AudioMgr.speak(w.tts, this); };
+
+  const choicesEl = document.getElementById('choicesEl');
+  q.choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = c.e;
+    btn.onclick = () => _checkChoice(btn, c.g, w.g, w.e, w);
+    choicesEl.appendChild(btn);
+  });
+
+  setTimeout(() => {
+    const btn = document.getElementById('listenBtn');
+    if (btn) AudioMgr.speak(w.tts, btn);
+  }, 600);
 }
-function isMobile() { return /Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent); }
-function getSR() { return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
 
-function doRecord(expectedRoman, word) {
-  const micBtn=document.getElementById('micBtn'), result=document.getElementById('pronunResult'), note=document.getElementById('micNote');
-  const SR = getSR();
+function _checkChoice(btn, selected, correct, correctLabel, word) {
+  document.querySelectorAll('.choice-btn').forEach(b => { b.disabled = true; b.onclick = null; });
+  const fb = document.getElementById('pickFb');
+  const isCorrect = selected === correct;
+  SR.record(_currentProfileId, word.g, isCorrect);
+  Store.save(_currentProfileId);
+  if (isCorrect) {
+    btn.className = 'choice-btn correct';
+    fb.className = 'pick-feedback good show';
+    fb.textContent = '✓ Correct!';
+    _addXP(true);
+  } else {
+    btn.className = 'choice-btn wrong';
+    document.querySelectorAll('.choice-btn').forEach(b => {
+      if (b !== btn && b.textContent.trim() === correctLabel) b.className = 'choice-btn correct';
+    });
+    fb.className = 'pick-feedback bad show';
+    fb.textContent = 'Not quite — correct answer highlighted above.';
+    document.getElementById('nextBtn').className = 'next-btn show';
+  }
+}
 
-  if (!SR) {
-    result.className='pronun-result retry show';
-    result.innerHTML=`🎤 Speech recognition isn't available in this browser. Try Safari on iPhone or Chrome on desktop.<br><small>Tap Continue to keep going.</small>`;
-    if (note) note.style.display='none';
-    document.getElementById('nextBtn').className='next-btn show';
+function _addXP(correct) {
+  if (correct) { _sessXP += 10; _sessCorrect += 1; }
+  document.getElementById('nextBtn').className = 'next-btn show';
+  showToast('+10 XP ⭐');
+  if (_sessCorrect > 0 && _sessCorrect % 5 === 0) Confetti.launch('small');
+}
+
+function _nextQ() {
+  _qIdx++;
+  if (_qIdx >= _questions.length) _finishLesson();
+  else _renderQ();
+}
+
+function _doRecord(expectedRoman, word) {
+  const micBtn = document.getElementById('micBtn');
+  const result = document.getElementById('pronunResult');
+  const note   = document.getElementById('micNote');
+  const SR_fn  = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SR_fn) {
+    result.className = 'pronun-result retry show';
+    result.innerHTML = '🎤 Speech recognition unavailable. Use Safari on iPhone or Chrome on desktop.';
+    if (note) note.style.display = 'none';
+    document.getElementById('nextBtn').className = 'next-btn show';
     return;
   }
 
   let rec;
-  try { rec = new SR(); } catch(e) {
-    result.className='pronun-result retry show';
-    result.innerHTML='🎤 Could not start mic. Tap Continue to keep going.';
-    if (note) note.style.display='none';
-    document.getElementById('nextBtn').className='next-btn show';
+  try { rec = new SR_fn(); } catch(e) {
+    result.className = 'pronun-result retry show';
+    result.innerHTML = '🎤 Could not start mic. Tap Continue to keep going.';
+    if (note) note.style.display = 'none';
+    document.getElementById('nextBtn').className = 'next-btn show';
     return;
   }
 
@@ -1570,59 +1992,64 @@ function doRecord(expectedRoman, word) {
   rec.interimResults = false;
   rec.maxAlternatives = 1;
 
-  micBtn.className='mic-btn recording';
-  micBtn.textContent = isMobile() ? '🔴 Listening...' : '🔴 Listening... speak now!';
+  micBtn.className = 'mic-btn recording';
+  micBtn.textContent = '🔴 Listening... speak now!';
   micBtn.disabled = true;
-  micBtn.onclick = null; // clear while recording to prevent double-fire
-  result.className='pronun-result';
-  if (note) note.style.display='none';
+  micBtn.onclick = null; // clear while recording
+  result.className = 'pronun-result';
+  if (note) note.style.display = 'none';
 
-  let didGetResult = false;
+  let gotResult = false;
 
   rec.onresult = (e) => {
-    didGetResult = true;
-    const heard=e.results[0][0].transcript.trim(), score=scorePronu(heard,expectedRoman);
-    result.className=`pronun-result ${score.level} show`;
-    result.innerHTML=`${randFB(score.level)}<div class="pronun-heard">We heard: "${heard}"</div>`;
-    micBtn.disabled=false;
-    const correct = score.level==='great'||score.level==='ok';
-    recordWordResult(currentProfileId, word.g, correct);
-    saveData();
-    if (correct) {
-      micBtn.className='mic-btn success'; micBtn.textContent='✓ Good job!';
-      micBtn.onclick = () => doRecord(expectedRoman, word);
-      addXP(true);
+    gotResult = true;
+    const heard = e.results[0][0].transcript.trim();
+    const level = scorePronu(heard, expectedRoman);
+    result.className = `pronun-result ${level} show`;
+    result.innerHTML = `${randFB(level)}<div class="pronun-heard">We heard: "${heard}"</div>`;
+    micBtn.disabled = false;
+    const isCorrect = level === 'great' || level === 'ok';
+    SR.record(_currentProfileId, word.g, isCorrect);
+    Store.save(_currentProfileId);
+    if (isCorrect) {
+      micBtn.className = 'mic-btn success';
+      micBtn.textContent = '✓ Good job!';
+      micBtn.onclick = () => _doRecord(expectedRoman, word);
+      _addXP(true);
     } else {
-      micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-      micBtn.onclick = () => doRecord(expectedRoman, word);
-      document.getElementById('nextBtn').className='next-btn show';
+      micBtn.className = 'mic-btn fail';
+      micBtn.textContent = '🎤 Try again';
+      micBtn.onclick = () => _doRecord(expectedRoman, word);
+      document.getElementById('nextBtn').className = 'next-btn show';
     }
   };
 
   rec.onerror = (e) => {
-    didGetResult = true;
-    micBtn.disabled=false;
-    if (e.error==='not-allowed'||e.error==='permission-denied'||e.error==='service-not-allowed') {
-      result.className='pronun-result nothing show';
-      result.innerHTML='🎤 Microphone not allowed. On iPhone: go to Settings → Safari → Microphone → Allow, then reload the page.';
+    gotResult = true;
+    micBtn.disabled = false;
+    if (['not-allowed','permission-denied','service-not-allowed'].includes(e.error)) {
+      result.className = 'pronun-result nothing show';
+      result.innerHTML = '🎤 Mic not allowed. On iPhone: Settings → Safari → Microphone → Allow.';
     } else {
-      result.className='pronun-result nothing show';
-      result.innerHTML=`🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and try again.':'Mic error: '+e.error+'. Try again.'}`;
+      result.className = 'pronun-result nothing show';
+      result.innerHTML = `🎤 ${e.error==='no-speech'?'Nothing heard — speak louder and try again.':'Mic error: '+e.error}`;
     }
-    micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-    micBtn.onclick = () => doRecord(expectedRoman, word);
-    document.getElementById('nextBtn').className='next-btn show';
+    micBtn.className = 'mic-btn fail';
+    micBtn.textContent = '🎤 Try again';
+    micBtn.onclick = () => _doRecord(expectedRoman, word);
+    document.getElementById('nextBtn').className = 'next-btn show';
   };
 
   rec.onend = () => {
     setTimeout(() => {
-      if (!didGetResult) {
-        micBtn.disabled=false;
-        micBtn.className='mic-btn fail'; micBtn.textContent='🎤 Try again';
-        micBtn.onclick = () => doRecord(expectedRoman, word);
-        result.className='pronun-result nothing show';
-        result.innerHTML='🎤 Nothing heard — tap the mic and try again.';
-        document.getElementById('nextBtn').className='next-btn show';
+      if (!gotResult) {
+        micBtn.disabled = false;
+        micBtn.className = 'mic-btn fail';
+        micBtn.textContent = '🎤 Try again';
+        micBtn.onclick = () => _doRecord(expectedRoman, word);
+        result.className = 'pronun-result nothing show';
+        result.innerHTML = '🎤 Nothing heard — tap the mic and try again.';
+        document.getElementById('nextBtn').className = 'next-btn show';
       }
     }, 300);
   };
@@ -1630,619 +2057,136 @@ function doRecord(expectedRoman, word) {
   try {
     rec.start();
   } catch(e) {
-    micBtn.disabled=false; micBtn.className='mic-btn';
-    micBtn.textContent='🎤 Try again';
-    micBtn.onclick = () => doRecord(expectedRoman, word);
-    result.className='pronun-result retry show';
-    result.innerHTML='🎤 Could not start mic. Make sure microphone permission is granted.';
-    document.getElementById('nextBtn').className='next-btn show';
+    micBtn.disabled = false;
+    micBtn.className = 'mic-btn';
+    micBtn.textContent = '🎤 Try again';
+    micBtn.onclick = () => _doRecord(expectedRoman, word);
+    result.className = 'pronun-result retry show';
+    result.innerHTML = '🎤 Could not start mic — check permissions.';
+    document.getElementById('nextBtn').className = 'next-btn show';
     return;
   }
 
-  if (!isMobileSafari()) {
-    setTimeout(() => { try{rec.stop();}catch(err){} }, 5000);
+  // Desktop: auto-stop after 5s; iOS Safari stops automatically
+  const isMobileSafari = /iP(hone|od|ad)/.test(navigator.userAgent) && /WebKit/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
+  if (!isMobileSafari) {
+    setTimeout(() => { try { rec.stop(); } catch(err) {} }, 5000);
   }
 }
 
-function renderPick(card, q) {
-  const w = q.word;
-  card.innerHTML = `
-    <div class="q-type">${isReview?'Review: ':''}What does this mean?</div>
-    <div class="guj-big">${w.g}</div>
-    <div class="roman">${w.r}</div>
-    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}" style="margin-bottom:0.75rem;">🔊 Hear it</button>
-    <div class="choices" id="choicesEl"></div>
-    <div class="pick-feedback" id="pickFb"></div>`;
-  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
-  const choicesEl = document.getElementById('choicesEl');
-  q.choices.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className='choice-btn'; btn.textContent=c.e;
-    btn.onclick = () => checkChoice(btn,c.g,w.g,w.e,w);
-    choicesEl.appendChild(btn);
-  });
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
-}
-
-function checkChoice(btn, selected, correct, correctLabel, word) {
-  document.querySelectorAll('.choice-btn').forEach(b=>{ b.disabled=true; b.onclick=null; });
-  const fb = document.getElementById('pickFb');
-  const isCorrect = selected===correct;
-  recordWordResult(currentProfileId, word.g, isCorrect);
-  saveData();
-  if (isCorrect) {
-    btn.className='choice-btn correct'; fb.className='pick-feedback good show'; fb.textContent='✓ Correct!';
-    addXP(true);
-  } else {
-    btn.className='choice-btn wrong';
-    document.querySelectorAll('.choice-btn').forEach(b=>{ if(b!==btn&&b.textContent.trim()===correctLabel) b.className='choice-btn correct'; });
-    fb.className='pick-feedback bad show'; fb.textContent='Not quite — the correct answer is highlighted.';
-    document.getElementById('nextBtn').className='next-btn show';
-  }
-}
-
-function addXP(correct) {
-  if (correct) { sessXP+=10; sessCorrect+=1; }
-  document.getElementById('nextBtn').className='next-btn show';
-  showToast('+10 XP ⭐');
-  // Mini confetti on perfect streak within session
-  if (sessCorrect > 0 && sessCorrect % 5 === 0) launchConfetti('small');
-}
-
-function nextQ() { curQ++; curQ>=questions.length ? finishLesson() : renderQ(); }
-
-function finishLesson() {
-  const d = currentData(), p = meta(currentProfileId);
+/* ═══════════════════════════════════════════════════════
+   FINISH LESSON
+═══════════════════════════════════════════════════════ */
+function _finishLesson() {
+  const d = Store.profile(_currentProfileId);
+  const p = meta(_currentProfileId);
   const prevLevel = getLevel(d.xp || 0);
-  d.xp = (d.xp || 0) + sessXP;
+
+  // Award XP
+  d.xp = (d.xp || 0) + _sessXP;
   const newLevel = getLevel(d.xp);
   const leveledUp = newLevel.name !== prevLevel.name;
-  if (!isReview && curLesson && !d.completed.includes(curLesson.id)) {
-    d.completed.push(curLesson.id);
-    // Mark all words in lesson as seen
-    curLesson.words.forEach(w => recordWordResult(currentProfileId, w.g, true));
+
+  // Record mastery
+  if (_lesson) SR.recordMastery(_currentProfileId, _lesson.id, _sessCorrect, _questions.length);
+
+  // Mark lesson complete
+  if (_mode !== 'review' && _lesson && !(d.completed||[]).includes(_lesson.id)) {
+    d.completed.push(_lesson.id);
+    // Mark all words as seen in SR
+    _lesson.words.forEach(w => {
+      if (!d.sr[w.g]) SR.record(_currentProfileId, w.g, true);
+    });
+    // Check for stage completion → Bholu gets new item
+    const stageLessons = LESSONS.filter(l => l.stage === _lesson.stage);
+    if (stageLessons.every(l => d.completed.includes(l.id))) {
+      const item = BHOLU_ITEMS.find(b => b.stage === _lesson.stage);
+      if (item) setTimeout(() => celebrate(item.emoji, `Stage ${_lesson.stage} complete! Bholu gets a ${item.label}!`, 'mega'), 1800);
+    }
   }
-  const iso = todayISO();
-  if (!d.activityLog.includes(iso)) d.activityLog.push(iso);
-  saveData();
 
-  const perfScore = sessCorrect / Math.max(1, questions.length);
-  const isMega = perfScore >= 0.9;
-  const isBig  = perfScore >= 0.6;
+  // Log activity
+  const today = todayISO();
+  if (!(d.activityLog||[]).includes(today)) d.activityLog.push(today);
 
-  document.getElementById('cIcon').textContent = isMega?'🏆':sessCorrect>=4?'🎉':'👏';
-  document.getElementById('cTitle').textContent = isReview ? 'Review complete!' : curLesson.name+' complete!';
+  // Mark AI lesson complete on server
+  if (_lesson && _lesson._ai && _lesson.firestoreId) {
+    API.markLessonComplete(_currentProfileId, _lesson.firestoreId, { correct: _sessCorrect, total: _questions.length });
+    Store.aiLessons = Store.aiLessons.map(l => l.id === _lesson.id ? {...l, completed:true} : l);
+  }
 
-  let subMsg = '';
-  if (isMega) subMsg = `Incredible, ${p.name}! Near-perfect! 🌟`;
-  else if (isBig) subMsg = `Great work, ${p.name}! Keep it up!`;
-  else subMsg = `Good effort, ${p.name}! Come back tomorrow to keep your streak.`;
-  document.getElementById('cSub').textContent = subMsg;
-  document.getElementById('cXP').textContent = sessXP;
-  document.getElementById('cCorrect').textContent = sessCorrect;
+  // Save
+  Store.save(_currentProfileId);
+
+  // Maybe generate next AI lesson
+  Store.maybeGenerateLesson(_currentProfileId);
+
+  // Log event to API
+  API.logEvent(_currentProfileId, _lesson ? 'lesson_complete' : 'review_complete', {
+    lessonId: _lesson ? _lesson.id : 'review',
+    xpEarned: _sessXP, correct: _sessCorrect, total: _questions.length
+  });
+
+  // Build complete screen
+  const perf = _sessCorrect / Math.max(1, _questions.length);
+  const isMega = perf >= 0.9;
+  document.getElementById('cIcon').textContent = isMega ? '🏆' : _sessCorrect >= 4 ? '🎉' : '👏';
+  const modePrefix = _mode === 'reinforce' ? '⚡ Reinforcement: ' : _mode === 'review' ? '' : '';
+  document.getElementById('cTitle').textContent = modePrefix + (_lesson ? _lesson.name + ' complete!' : 'Review complete!');
+  document.getElementById('cSub').textContent = isMega
+    ? `Incredible, ${p.name}! Near-perfect! 🌟`
+    : perf >= 0.6 ? `Great work, ${p.name}! Keep it up!`
+    : `Good effort, ${p.name}! Practice makes perfect.`;
+  document.getElementById('cXP').textContent = _sessXP;
+  document.getElementById('cCorrect').textContent = _sessCorrect;
 
   // SR next review hint
-  const nextDue = getDueWords(currentProfileId);
-  const srEl = document.getElementById('srNext');
-  if (nextDue.length > 0) {
-    srEl.innerHTML = `🧠 <strong>${nextDue.length} word${nextDue.length!==1?'s':''}</strong> due for review — come back tomorrow to keep them fresh!`;
+  const due = SR.getDue(_currentProfileId);
+  document.getElementById('srNext').innerHTML = due.length > 0
+    ? `🧠 <strong>${due.length} word${due.length!==1?'s':''}</strong> due for review — come back tomorrow!`
+    : `✅ All caught up on reviews! Check back tomorrow.`;
+
+  document.getElementById('doneBtn').onclick = () => enterHome(_currentProfileId);
+
+  // Celebrations
+  if (leveledUp) {
+    setTimeout(() => celebrate(newLevel.icon, `Level up! You're a ${newLevel.name}!`, 'mega'), 300);
   } else {
-    srEl.innerHTML = `✅ You're all caught up on reviews! Check back tomorrow.`;
+    setTimeout(() => celebrate(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
   }
 
-  // Celebration
-  if (leveledUp) {
-    setTimeout(() => launchCelebration(newLevel.icon, `Level up! You're a ${newLevel.name}!`, 'mega'), 300);
-  } else {
-    setTimeout(() => launchCelebration(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
-  }
   showScreen('completeScreen');
 }
 
-/* ══════════════════════════════════════════
-   UTILS
-══════════════════════════════════════════ */
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0,0);
-}
-function showToast(msg) {
-  const t=document.getElementById('toast'); t.textContent=msg;
-  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400);
-}
-
-
-/* ══════════════════════════════════════════
-   LOGIN
-══════════════════════════════════════════ */
-function buildLogin() {
-  buildWotd();
-  buildChallenge();
-  buildBholuSection();
-  buildLeaderboardHTML('loginLbGrid', null);
-  const grid = document.getElementById('profileGrid');
-  grid.innerHTML = '';
-  PROFILES.forEach(p => {
-    const d = getProfileData(p.id);
-    const due = getDueCount(p.id);
-    const todayStr = todayISO();
-    const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    const atRisk = d.streak > 0 && d.lastDate !== todayStr && d.lastDate !== yesterdayStr;
-    // Bholu per-profile
-    const items = getBholuItems(d.completed || []);
-    const bholuMini = renderBholu(d.completed || [], 40);
-    const card = document.createElement('div');
-    card.className = 'profile-card';
-    card.innerHTML = `
-      ${atRisk ? '<div class="streak-risk">🔥 At risk!</div>' : ''}
-      ${due > 0 ? `<div class="review-badge">📚 ${due} due</div>` : ''}
-      <div class="profile-avatar">${profileAvatar(p, 44)}</div>
-      <div class="profile-name">${p.name}</div>
-      <div class="profile-xp">⭐ ${d.xp||0} XP · ${getLevel(d.xp||0).icon} ${getLevel(d.xp||0).name}</div>
-      <div class="profile-streak" style="color:${d.streak>0?'#e85d04':'#ccc'}">${d.streak>0?'🔥 '+d.streak+' day streak':'No streak yet'}</div>
-      ${items.length > 0 ? `<div style="font-size:11px;color:#1D9E75;font-weight:600;margin-top:4px;">${items.map(i=>i.emoji).join('')} Bholu's items</div>` : ''}
-    `;
-    card.onclick = () => selectProfile(p.id);
-    grid.appendChild(card);
-  });
-}
-
-function selectProfile(id) {
-  currentProfileId = id;
-  const d = getProfileData(id);
-  if (d.pin===null) showPinSetup(); else showPinEntry(false);
-}
-
-/* ══════════════════════════════════════════
-   PIN
-══════════════════════════════════════════ */
-let pinBuffer='', pinMode='entry', pinFirst='';
-function showPinSetup() { pinMode='setup1'; pinBuffer=''; pinFirst=''; renderPin('Choose a 4-digit PIN','Step 1 of 2',false); showScreen('pinScreen'); }
-function showPinEntry(shake) { pinMode='entry'; pinBuffer=''; renderPin('Enter your PIN','',shake); showScreen('pinScreen'); }
-function renderPin(label, step, shake) {
-  const p = meta(currentProfileId);
-  document.getElementById('pinWrap').innerHTML = `
-    <div class="pin-avatar-emoji">${profileAvatar(p, 64)}</div>
-    <div class="pin-name">${p.name}</div>
-    ${step?`<div class="pin-step">${step}</div>`:''}
-    <div class="pin-label">${label}</div>
-    <div class="pin-dots">${[0,1,2,3].map(()=>`<div class="pin-dot${shake?' wrong':''}"></div>`).join('')}</div>
-    <div class="pin-error" id="pinError"></div>
-    <div class="pin-keypad">${[1,2,3,4,5,6,7,8,9,'','0','⌫'].map(k=>`<button class="pin-key${k==='⌫'?' del':''}" onclick="pinKey('${k}')" ${k===''?'style="visibility:hidden"':''}>${k}</button>`).join('')}</div>
-    <button class="back-link" onclick="logout()">← Back to profiles</button>`;
-}
-function pinKey(k) {
-  if (k==='⌫') pinBuffer=pinBuffer.slice(0,-1);
-  else if (k!==''&&pinBuffer.length<4) pinBuffer+=k;
-  document.querySelectorAll('.pin-dot').forEach((d,i) => { d.className='pin-dot'+(i<pinBuffer.length?' filled':''); });
-  if (pinBuffer.length===4) setTimeout(handlePin,130);
-}
-function handlePin() {
-  const d = getProfileData(currentProfileId);
-  if (pinMode==='setup1') { pinFirst=pinBuffer; pinBuffer=''; pinMode='setup2'; renderPin('Confirm your PIN','Step 2 of 2',false); }
-  else if (pinMode==='setup2') {
-    if (pinBuffer===pinFirst) { d.pin=pinBuffer; savePins(); saveData(); enterHome(); }
-    else { pinBuffer=''; pinFirst=''; pinMode='setup1'; renderPin('Choose a 4-digit PIN','Step 1 of 2',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent="PINs didn't match"; },50); }
-  } else {
-    if (pinBuffer===d.pin) {
-      enterHome(); // show home immediately from localStorage
-      syncProfileFromAPI(currentProfileId).then(() => {
-        // Silently refresh stats if API returned newer data
-        if (document.getElementById('homeScreen').classList.contains('active')) {
-          updateHomeStats();
-          buildReviewSection();
-          updateLessons();
-        }
-      });
-    }
-    else { pinBuffer=''; renderPin('Enter your PIN','',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent='Wrong PIN — try again'; },50); }
-  }
-}
-
-/* ══════════════════════════════════════════
-   HOME
-══════════════════════════════════════════ */
-function enterHome() {
-  const p = meta(currentProfileId), d = currentData();
-  const todayStr = todayISO();
-  const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10);
-  const prevStreak = d.streak;
-  if (d.lastDate !== todayStr) {
-    d.streak = (d.lastDate === yesterdayStr) ? d.streak+1 : 1;
-    d.lastDate = todayStr;
-    if (!d.activityLog.includes(todayStr)) d.activityLog.push(todayStr);
-    saveData();
-  }
-  if (d.streak !== prevStreak) {
-    if (d.streak === 3)  setTimeout(()=>launchCelebration('🔥','3-day streak!','big'), 400);
-    if (d.streak === 7)  setTimeout(()=>launchCelebration('🚀','7-day streak!','mega'), 400);
-    if (d.streak === 14) setTimeout(()=>launchCelebration('⭐','2-week streak!','mega'), 400);
-    if (d.streak === 30) setTimeout(()=>launchCelebration('👑','30-day streak!','mega'), 400);
-  }
-  document.getElementById('homeAvatarEmoji').innerHTML = profileAvatar(p, 38);
-  document.getElementById('homeName').textContent = 'Hi, '+p.name+'!';
-  // Show Bholu on home screen
-  const bholuEl = document.getElementById('homeBholu');
-  if (bholuEl) bholuEl.innerHTML = renderBholu(d.completed||[], 56);
-  updateHomeStats();
-  buildReviewSection();
-  updateLessons();
-  showScreen('homeScreen');
-}
-
-function updateHomeStats() {
-  const d = currentData();
-  const xp = d.xp || 0;
-  const lv = getLevel(xp);
-  const nextLv = getNextLevel(xp);
-  document.getElementById('statXP').textContent = xp;
-  document.getElementById('statStreak').textContent = d.streak || 0;
-  document.getElementById('statWords').textContent = (d.completed||[]).reduce((a,id) => {
-    const l = LESSONS.find(x=>x.id===id); return a+(l?l.words.length:0);
-  }, 0);
-  const lvEl = document.getElementById('levelBadge');
-  if (lvEl) {
-    lvEl.textContent = `${lv.icon} ${lv.name}`;
-    if (nextLv) lvEl.title = `${xp - lv.min} / ${nextLv.min - lv.min} XP to ${nextLv.name}`;
-  }
-}
-
-function buildReviewSection() {
-  const due = getDueWords(currentProfileId);
-  const section = document.getElementById('reviewSection');
-  if (due.length === 0) { section.innerHTML = ''; return; }
-  section.innerHTML = `
-    <div class="review-card" onclick="startReview()">
-      <div class="review-icon">🧠</div>
-      <div class="review-info">
-        <div class="review-title">Daily Review — ${due.length} word${due.length!==1?'s':''} due</div>
-        <div class="review-sub">Spaced repetition keeps words fresh</div>
-      </div>
-      <div class="review-arrow">→</div>
-    </div>`;
-}
-
-function updateLessons() {
-  const d = currentData();
-  const list = document.getElementById('lessonList');
-  list.innerHTML = '';
-  const stages = STAGES;
-  stages.forEach(stage => {
-    const stageLessons = LESSONS.filter(l => l.stage === stage.num);
-    if (!stageLessons.length) return;
-    // Check if previous stage is complete
-    const prevStage = stage.num - 1;
-    const prevDone = prevStage === 0 || LESSONS.filter(l=>l.stage===prevStage).every(l=>(d.completed||[]).includes(l.id));
-    const header = document.createElement('div');
-    header.style.cssText = `font-size:11px;font-weight:700;color:${stage.color};text-transform:uppercase;letter-spacing:0.06em;margin:0.75rem 0 6px;padding-left:2px;display:flex;align-items:center;gap:6px;`;
-    // Bholu item for this stage
-    const bholuItem = BHOLU_ITEMS.find(b => b.stage === stage.num);
-    const stageComplete = stageLessons.every(l=>(d.completed||[]).includes(l.id));
-    header.innerHTML = `<span>Stage ${stage.num} — ${stage.name}</span>${stageComplete?`<span style="font-size:14px">${bholuItem?bholuItem.emoji:''}</span>` : ''}`;
-    list.appendChild(header);
-    stageLessons.forEach((lesson, idxInStage) => {
-      const done = (d.completed||[]).includes(lesson.id);
-      const needsReinf = done && needsReinforcement(currentProfileId, lesson.id);
-      // Lock: first lesson of stage 1 always open; otherwise sequential within stage,
-      // and stage requires previous stage done
-      let locked = false;
-      if (!prevDone) {
-        locked = true;
-      } else if (idxInStage > 0) {
-        locked = !(d.completed||[]).includes(stageLessons[idxInStage-1].id);
-      }
-      const hasTpr = lesson.words.some(w=>w.tpr);
-      const mastery = getLessonMastery(currentProfileId, lesson.id);
-      const masteryStr = mastery ? ` · ${Math.round(mastery.pct*100)}%` : '';
-      const row = document.createElement('div');
-      row.className = 'lesson-row'+(locked?' locked':'');
-      row.innerHTML = `
-        <div class="l-icon">${lesson.icon}</div>
-        <div class="l-info">
-          <div class="l-name">${lesson.name}${hasTpr?' <span style="font-size:10px;background:#FFF5F0;color:#993C1D;padding:2px 6px;border-radius:99px;font-weight:600;vertical-align:middle">🏃 TPR</span>':''}</div>
-          <div class="l-desc">${lesson.desc}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-          <div class="l-badge ${done?'done':''}">${done?'✓ Done'+masteryStr:locked?'🔒':'Start →'}</div>
-          ${needsReinf?'<div style="font-size:10px;background:#FAEEDA;color:#633806;padding:2px 7px;border-radius:99px;font-weight:600">⚡ Reinforce</div>':''}
-        </div>`;
-      if (!locked) {
-        row.onclick = () => needsReinf ? startReinforcement(lesson) : startLesson(lesson);
-      }
-      list.appendChild(row);
-    });
-  });
-
-  // AI-generated lessons — shown at bottom
-  if (aiLessons && aiLessons.filter(l=>!l.completed).length > 0) {
-    const header = document.createElement('div');
-    header.style.cssText = 'font-size:11px;font-weight:700;color:#7F77DD;text-transform:uppercase;letter-spacing:0.06em;margin:0.75rem 0 6px;padding-left:2px;';
-    header.textContent = '✨ Personalized for you';
-    list.appendChild(header);
-    aiLessons.filter(l=>!l.completed).forEach(lesson => {
-      const row = document.createElement('div');
-      row.className = 'lesson-row';
-      row.innerHTML = `
-        <div class="l-icon">${lesson.icon||'🤖'}</div>
-        <div class="l-info">
-          <div class="l-name">${lesson.name} <span style="font-size:10px;background:#EEEDFE;color:#3C3489;padding:2px 6px;border-radius:99px;font-weight:600">AI</span></div>
-          <div class="l-desc">${lesson.desc||'Personalized lesson'}</div>
-        </div>
-        <div class="l-badge">Start →</div>`;
-      row.onclick = () => startAILesson(lesson);
-      list.appendChild(row);
-    });
-  }
-}
-
-function startAILesson(lesson) {
-  // Inject into LESSONS temporarily for this session
-  if (!LESSONS.find(l => l.id === lesson.id)) {
-    LESSONS.push({ ...lesson, stage: lesson.stage||1, tier: lesson.tier||1 });
-    lesson.words.forEach(w => {
-      if (!ALL_WORDS.find(x => x.g === w.g)) ALL_WORDS.push({ ...w, lessonId: lesson.id });
-    });
-  }
-  startLesson(lesson);
-}
-
-function logout() { stopAudio(); currentProfileId=null; buildLogin(); showScreen('loginScreen'); }
-function goHome() { stopAudio(); updateHomeStats(); buildReviewSection(); updateLessons(); showScreen('homeScreen'); }
-
-/* ══════════════════════════════════════════
-   LESSON ENGINE
-══════════════════════════════════════════ */
-let curLesson=null, curQ=0, questions=[], sessXP=0, sessCorrect=0, isReview=false, isReinforcement=false;
-
-function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
-
-function buildQuestions(words, allWordsPool) {
-  const qs = [];
-  words.forEach(w => qs.push({type:'listen', word:w}));
-  words.forEach(w => {
-    const others = shuffle(allWordsPool.filter(x=>x.g!==w.g)).slice(0,3);
-    if (others.length < 3) return;
-    qs.push({type:'pick', word:w, choices:shuffle([w,...others])});
-  });
-  return shuffle(qs).slice(0, Math.min(10, qs.length));
-}
-
-function startLesson(lesson) {
-  isReview = false; isReinforcement = false;
-  curLesson = lesson; curQ = 0;
-  questions = buildQuestions(lesson.words, ALL_WORDS);
-  sessXP = 0; sessCorrect = 0;
-  showScreen('lessonScreen'); renderQ();
-}
-
-function startReinforcement(lesson) {
-  isReview = false; isReinforcement = true;
-  curLesson = lesson; curQ = 0;
-  const words = getReinforcementWords(currentProfileId, lesson.id);
-  questions = buildQuestions(words, ALL_WORDS);
-  sessXP = 0; sessCorrect = 0;
-  showScreen('lessonScreen'); renderQ();
-}
-
-function startReview() {
-  isReview = true; isReinforcement = false;
-  curLesson = null; curQ = 0;
-  const due = getDueWords(currentProfileId).slice(0, 10);
-  if (due.length===0) { goHome(); return; }
-  questions = buildQuestions(due, ALL_WORDS);
-  sessXP = 0; sessCorrect = 0;
-  showScreen('lessonScreen'); renderQ();
-}
-
-function renderQ() {
-  const q = questions[curQ];
-  document.getElementById('progressFill').style.width = Math.round((curQ/questions.length)*100)+'%';
-  document.getElementById('progLabel').textContent = curQ+' / '+questions.length;
-  document.getElementById('nextBtn').className = 'next-btn';
-  q.type==='listen' ? renderListen(document.getElementById('qCard'),q) : renderPick(document.getElementById('qCard'),q);
-}
-
-function renderListen(card, q) {
-  const w = q.word;
-  const hasTpr = !!w.tpr;
-  const hasImg = !!w.img;
-  const typeLabel = isReview?'Review':isReinforcement?'⚡ Reinforce':hasTpr?'Listen, Act & Repeat':'Listen & Repeat';
-  card.innerHTML = `
-    <div class="q-type">${typeLabel}</div>
-    ${hasImg?`<div style="font-size:36px;text-align:center;padding:4px 0">${w.img}</div>`:''}
-    <div class="guj-big">${w.g}</div>
-    <div class="roman">${w.r}</div>
-    <div class="english">${w.e}</div>
-    ${hasTpr ? `<div style="background:#FFF5F0;border:1.5px solid #F09595;border-radius:12px;padding:10px 14px;text-align:center;margin-bottom:10px;font-size:15px;font-weight:600;color:#993C1D;">🏃 ${w.tpr}</div>` : ''}
-    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}">🔊 Hear it</button>
-    <div class="mic-section">
-      <button class="mic-btn" id="micBtn">🎤 ${isMobile() ? 'Tap to say it' : 'Now say it out loud'}</button>
-      <div class="pronun-result" id="pronunResult"></div>
-      <div class="mic-required-note" id="micNote">You must say it before continuing</div>
-    </div>`;
-  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
-  document.getElementById('micBtn').onclick = function() { doRecord(w.roman, w); };
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
-  // Auto-show Continue + record neutral SR after 2.8s
-  setTimeout(() => {
-    const nb = document.getElementById('nextBtn');
-    if (nb && nb.className === 'next-btn') {
-      const sr = getSRData(currentProfileId);
-      if (!sr[w.g]) recordWordResult(currentProfileId, w.g, false);
-      nb.className = 'next-btn show';
-    }
-  }, 2800);
-}
-
-function renderPick(card, q) {
-  const w = q.word;
-  const typeLabel = isReview?'Review: What does this mean?':isReinforcement?'⚡ Reinforce: What does this mean?':'What does this mean?';
-  const hasImg = !!w.img;
-  card.innerHTML = `
-    <div class="q-type">${typeLabel}</div>
-    ${hasImg?`<div style="font-size:36px;text-align:center;padding:4px 0">${w.img}</div>`:''}
-    <div class="guj-big">${w.g}</div>
-    <div class="roman">${w.r}</div>
-    <button class="listen-btn" id="listenBtn" data-tts="${encodeURIComponent(w.tts)}" style="margin-bottom:0.75rem;">🔊 Hear it</button>
-    <div class="choices" id="choicesEl"></div>
-    <div class="pick-feedback" id="pickFb"></div>`;
-  document.getElementById('listenBtn').onclick = function() { speakWord(decodeURIComponent(this.dataset.tts),this); };
-  const choicesEl = document.getElementById('choicesEl');
-  q.choices.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className='choice-btn'; btn.textContent=c.e;
-    btn.onclick = () => checkChoice(btn,c.g,w.g,w.e,w);
-    choicesEl.appendChild(btn);
-  });
-  setTimeout(() => { const b=document.getElementById('listenBtn'); if(b) speakWord(decodeURIComponent(b.dataset.tts),b); }, 600);
-}
-
-function checkChoice(btn, selected, correct, correctLabel, word) {
-  document.querySelectorAll('.choice-btn').forEach(b=>{ b.disabled=true; b.onclick=null; });
-  const fb = document.getElementById('pickFb');
-  const isCorrect = selected===correct;
-  recordWordResult(currentProfileId, word.g, isCorrect);
-  saveData();
-  if (isCorrect) {
-    btn.className='choice-btn correct'; fb.className='pick-feedback good show'; fb.textContent='✓ Correct!';
-    addXP(true);
-  } else {
-    btn.className='choice-btn wrong';
-    document.querySelectorAll('.choice-btn').forEach(b=>{ if(b!==btn&&b.textContent.trim()===correctLabel) b.className='choice-btn correct'; });
-    fb.className='pick-feedback bad show'; fb.textContent='Not quite — the correct answer is highlighted.';
-    document.getElementById('nextBtn').className='next-btn show';
-  }
-}
-
-function addXP(correct) {
-  if (correct) { sessXP+=10; sessCorrect+=1; }
-  document.getElementById('nextBtn').className='next-btn show';
-  showToast('+10 XP ⭐');
-  if (sessCorrect > 0 && sessCorrect % 5 === 0) launchConfetti('small');
-}
-
-function nextQ() { curQ++; curQ>=questions.length ? finishLesson() : renderQ(); }
-
-function finishLesson() {
-  const d = currentData(), p = meta(currentProfileId);
-  const prevLevel = getLevel(d.xp || 0);
-  d.xp = (d.xp || 0) + sessXP;
-  const newLevel = getLevel(d.xp);
-  const leveledUp = newLevel.name !== prevLevel.name;
-
-  // Record mastery score
-  if (curLesson) {
-    recordLessonScore(currentProfileId, curLesson.id, sessCorrect, questions.length);
-  }
-
-  if (!isReview && !isReinforcement && curLesson && !(d.completed||[]).includes(curLesson.id)) {
-    d.completed.push(curLesson.id);
-    curLesson.words.forEach(w => recordWordResult(currentProfileId, w.g, true));
-    // Check if this completes a stage → Bholu gets new item
-    const stage = STAGES.find(s => s.num === curLesson.stage);
-    if (stage) {
-      const stageLessons = LESSONS.filter(l => l.stage === curLesson.stage);
-      const stageNowDone = stageLessons.every(l => d.completed.includes(l.id));
-      if (stageNowDone) {
-        const bholuItem = BHOLU_ITEMS.find(b => b.stage === curLesson.stage);
-        if (bholuItem) {
-          setTimeout(() => launchCelebration(bholuItem.emoji, `Stage ${curLesson.stage} complete! ${bholuItem.desc}`, 'mega'), 2000);
-        }
-      }
-    }
-  }
-
-  const iso = todayISO();
-  if (!(d.activityLog||[]).includes(iso)) d.activityLog.push(iso);
-  saveData();
-  // Mark AI lesson complete if this was one
-  if (curLesson && curLesson.firestoreId) {
-    markAILessonComplete(curLesson.firestoreId, { correct: sessCorrect, total: questions.length });
-    aiLessons = aiLessons.map(l => l.id===curLesson.id ? {...l,completed:true} : l);
-  }
-  // Trigger AI generation if player is running low on curated lessons
-  triggerAILessonGeneration();
-
-  const perfScore = sessCorrect / Math.max(1, questions.length);
-  const isMega = perfScore >= 0.9;
-  document.getElementById('cIcon').textContent = isMega?'🏆':sessCorrect>=4?'🎉':'👏';
-  const titlePrefix = isReinforcement?'⚡ Reinforcement':isReview?'Review':'';
-  document.getElementById('cTitle').textContent = (titlePrefix?titlePrefix+' ':'') + (curLesson?curLesson.name+' complete!':'complete!');
-  let subMsg = isMega ? `Incredible, ${p.name}! Near-perfect! 🌟`
-    : perfScore >= 0.6 ? `Great work, ${p.name}! Keep it up!`
-    : `Good effort, ${p.name}! Come back tomorrow.`;
-  if (!isReview && curLesson && needsReinforcement(currentProfileId, curLesson.id)) {
-    subMsg += ' ⚡ A reinforcement session has unlocked to help with tricky words.';
-  }
-  document.getElementById('cSub').textContent = subMsg;
-  document.getElementById('cXP').textContent = sessXP;
-  document.getElementById('cCorrect').textContent = sessCorrect;
-  const nextDue = getDueWords(currentProfileId);
-  const srEl = document.getElementById('srNext');
-  srEl.innerHTML = nextDue.length > 0
-    ? `🧠 <strong>${nextDue.length} word${nextDue.length!==1?'s':''}</strong> due for review soon.`
-    : `✅ All caught up on reviews!`;
-
-  if (leveledUp) {
-    setTimeout(()=>launchCelebration(newLevel.icon, `Level up! You're a ${newLevel.name}!`, 'mega'), 300);
-  } else {
-    setTimeout(()=>launchCelebration(isMega?'🏆':'🎉', isMega?'Perfect score!':'Lesson complete!', isMega?'mega':'big'), 300);
-  }
-  showScreen('completeScreen');
-}
-
-/* ══════════════════════════════════════════
-   UTILS
-══════════════════════════════════════════ */
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0,0);
-}
-function showToast(msg) {
-  const t=document.getElementById('toast'); t.textContent=msg;
-  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400);
-}
-
-loadData();
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+// Load from localStorage and show UI immediately — zero waiting
+Store.load();
+Confetti.init();
 buildLogin();
 
-// Ping API immediately to warm up the Cloud Function
-// so it's ready by the time user enters PIN
-if (API_BASE) {
-  fetch(API_BASE + '/v1/leaderboard', { headers: { 'X-Api-Key': APP_API_KEY } })
-    .catch(() => {}); // fire and forget — just waking it up
-}
-
-// Background API sync — refresh leaderboard if API has newer data
-(async () => {
-  if (!API_BASE) return;
-  try {
-    const res = await apiGet('/v1/leaderboard');
-    if (!res || !res.leaderboard) return;
-    let changed = false;
-    res.leaderboard.forEach(remote => {
-      const local = allData[remote.profileId] || {};
-      const pin = local.pin || null;
-      const safeXP = Math.max(local.xp||0, remote.xp||0);
-      if (safeXP !== (local.xp||0) || remote.streak !== local.streak) {
-        allData[remote.profileId] = { ...local, ...remote, xp: safeXP, pin };
-        changed = true;
+// Background: warm up API so Cloud Function is ready by the time user enters PIN
+if (CFG.API_BASE) {
+  fetch(CFG.API_BASE + '/v1/leaderboard', { headers:{'X-Api-Key':CFG.APP_KEY} })
+    .then(r => r.json())
+    .then(data => {
+      // If API returned fresh leaderboard, silently update profiles
+      if (data && data.leaderboard) {
+        let changed = false;
+        data.leaderboard.forEach(remote => {
+          const local = Store.profile(remote.profileId);
+          const safeXP = Math.max(local.xp||0, remote.xp||0);
+          if (safeXP !== (local.xp||0)) { local.xp = safeXP; changed = true; }
+        });
+        if (changed) {
+          Store._persist();
+          if (document.getElementById('loginScreen').classList.contains('active')) buildLogin();
+        }
       }
-    });
-    if (changed) {
-      const forStorage = {};
-      PROFILES.forEach(p => {
-        if (!allData[p.id]) return;
-        const { pin, ...prog } = allData[p.id];
-        forStorage[p.id] = prog;
-      });
-      try { localStorage.setItem('guj_v5', JSON.stringify(forStorage)); } catch(e) {}
-      if (document.getElementById('loginScreen').classList.contains('active')) buildLogin();
-    }
-  } catch(err) { console.warn('Background API sync failed:', err); }
-})();
+    })
+    .catch(() => {});
+}
 
 </script>
 </body>
