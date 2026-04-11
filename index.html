@@ -1161,21 +1161,37 @@ const APP_API_KEY = 'guj-parikh-2026';
 async function apiGet(path) {
   if (!API_BASE) return null;
   try {
-    const r = await fetch(API_BASE + path, { headers: { 'X-Api-Key': APP_API_KEY } });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
+    const r = await fetch(API_BASE + path, {
+      headers: { 'X-Api-Key': APP_API_KEY },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
     return r.json();
-  } catch(e) { console.warn('API GET failed:', path, e); return null; }
+  } catch(e) {
+    if (e.name !== 'AbortError') console.warn('API GET failed:', path, e);
+    return null;
+  }
 }
 
 async function apiPost(path, body) {
   if (!API_BASE) return null;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const r = await fetch(API_BASE + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': APP_API_KEY },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     return r.json();
-  } catch(e) { console.warn('API POST failed:', path, e); return null; }
+  } catch(e) {
+    if (e.name !== 'AbortError') console.warn('API POST failed:', path, e);
+    return null;
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -1809,7 +1825,17 @@ function handlePin() {
     if (pinBuffer===pinFirst) { d.pin=pinBuffer; savePins(); saveData(); enterHome(); }
     else { pinBuffer=''; pinFirst=''; pinMode='setup1'; renderPin('Choose a 4-digit PIN','Step 1 of 2',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent="PINs didn't match"; },50); }
   } else {
-    if (pinBuffer===d.pin) { syncProfileFromAPI(currentProfileId).then(()=>enterHome()); }
+    if (pinBuffer===d.pin) {
+      enterHome(); // show home immediately from localStorage
+      syncProfileFromAPI(currentProfileId).then(() => {
+        // Silently refresh stats if API returned newer data
+        if (document.getElementById('homeScreen').classList.contains('active')) {
+          updateHomeStats();
+          buildReviewSection();
+          updateLessons();
+        }
+      });
+    }
     else { pinBuffer=''; renderPin('Enter your PIN','',true); setTimeout(()=>{ const el=document.getElementById('pinError'); if(el) el.textContent='Wrong PIN — try again'; },50); }
   }
 }
@@ -2181,6 +2207,13 @@ function showToast(msg) {
 
 loadData();
 buildLogin();
+
+// Ping API immediately to warm up the Cloud Function
+// so it's ready by the time user enters PIN
+if (API_BASE) {
+  fetch(API_BASE + '/v1/leaderboard', { headers: { 'X-Api-Key': APP_API_KEY } })
+    .catch(() => {}); // fire and forget — just waking it up
+}
 
 // Background API sync — refresh leaderboard if API has newer data
 (async () => {
