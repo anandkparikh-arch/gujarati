@@ -972,11 +972,6 @@ const API = {
     return res && res.scores ? res.scores : null;
   },
 
-  // Log a user event (fire and forget)
-  logEvent(profileId, type, payload = {}) {
-    this.post('/v1/events', { profileId, type, payload, appVersion: '3.0' }).catch(() => {});
-  },
-
   // Record event through scoring microservice (primary write path)
   async recordEvent(profileId, type, data) {
     return this.post('/v1/events/record', { profileId, type, data, clientTs: Date.now() });
@@ -1240,10 +1235,21 @@ const Store = {
   maybeGenerateLesson(profileId) {
     const d = this.profile(profileId);
     const completed = d.completed || [];
+    const sr = d.sr || {};
     const totalCurated = LESSONS.filter(l => !l._ai).length;
     const completedCurated = completed.filter(id => LESSONS.find(l => l.id===id && !l._ai)).length;
     const pendingAI = this.aiLessons.filter(l => !completed.includes(l.id)).length;
-    if (completedCurated > totalCurated * 0.5 && pendingAI < 2) {
+
+    // Count persistent failures — words stuck at level 0-1 that have been seen
+    const stuckCount = Object.values(sr).filter(e => e.level <= 1 && e.lastSeen).length;
+
+    // Trigger if: (a) past 50% of curated curriculum, OR (b) 5+ stuck words
+    // Both require < 2 pending AI lessons in queue
+    const shouldGenerate = pendingAI < 2 && (
+      completedCurated > totalCurated * 0.5 || stuckCount >= 5
+    );
+
+    if (shouldGenerate) {
       API.generateLesson(profileId)
         .then(res => { if (res?.lesson) { this.aiLessons.push(res.lesson); this._injectAILessons(); }})
         .catch(() => {});
@@ -1343,21 +1349,28 @@ const SR = {
     e.lastSeen = todayISO();
   },
 
-  // Words due for review today
+  // Words due for review today — prioritizes stuck words (persistent failures)
   getDue(profileId) {
     const d = Store.profile(profileId);
     const sr = d.sr || {};
     const today = todayISO();
-    const seen = [], unseen = [];
+    const stuck = [], due = [], unseen = [];
     ALL_WORDS.forEach(w => {
       const e = sr[w.g];
       if (e && e.nextReview) {
-        if (e.nextReview <= today) seen.push(w);
+        if (e.nextReview <= today) {
+          // Stuck: seen before, still at level 0-1 — these are persistent failures
+          if (e.level <= 1) stuck.push(w);
+          else due.push(w);
+        }
       } else {
         if ((d.completed||[]).includes(w.lessonId)) unseen.push(w);
       }
     });
-    return [...seen, ...unseen.slice(0, Math.max(0, 10 - seen.length))];
+    // Stuck words first, then normally due, then fill with unseen from completed lessons
+    const combined = [...stuck, ...due];
+    const remaining = Math.max(0, 10 - combined.length);
+    return [...combined, ...unseen.slice(0, remaining)];
   },
 
   getDueCount(profileId) { return this.getDue(profileId).length; },
@@ -1920,12 +1933,18 @@ function buildReviewSection() {
   const due = SR.getDue(_currentProfileId);
   const el = document.getElementById('reviewSection');
   if (due.length === 0) { el.innerHTML = ''; return; }
+  // Count how many are stuck (persistent failures)
+  const sr = Store.profile(_currentProfileId).sr || {};
+  const stuckCount = due.filter(w => { const e = sr[w.g]; return e && e.level <= 1 && e.lastSeen; }).length;
+  const sub = stuckCount > 0
+    ? `${stuckCount} tricky word${stuckCount!==1?'s':''} need extra practice`
+    : 'Spaced repetition keeps words fresh in memory';
   el.innerHTML = `
     <div class="review-card" id="reviewCard">
       <div class="review-icon">🧠</div>
       <div class="review-info">
         <div class="review-title">Daily Review — ${due.length} word${due.length!==1?'s':''} due</div>
-        <div class="review-sub">Spaced repetition keeps words fresh in memory</div>
+        <div class="review-sub">${sub}</div>
       </div>
       <div class="review-arrow">→</div>
     </div>`;
@@ -1955,7 +1974,7 @@ function buildLessonList() {
 
     stageLessons.forEach((lesson, idx) => {
       const done = completed.includes(lesson.id);
-      const locked = !prevDone || (idx > 0 && !completed.includes(stageLessons[idx-1].id));
+      const locked = !prevDone;  // only locked if previous stage incomplete
       const needsReinf = done && SR.needsReinforcement(_currentProfileId, lesson.id);
       const mastery = SR.getMastery(_currentProfileId, lesson.id);
       const hasTpr = lesson.words.some(w => w.tpr);
@@ -1978,7 +1997,7 @@ function buildLessonList() {
         </div>`;
 
       if (!locked) {
-        row.onclick = () => needsReinf ? startReinforcement(lesson) : startLesson(lesson);
+        row.onclick = () => startLesson(lesson);
       }
       list.appendChild(row);
     });
@@ -2011,9 +2030,18 @@ function _buildQuestions(words) {
   words.forEach(w => qs.push({ type:'listen', word:w }));
   // Each word gets one pick card (if enough words in pool for distractors)
   words.forEach(w => {
-    const others = shuffle(ALL_WORDS.filter(x => x.g !== w.g)).slice(0, 3);
+    // Try lesson words first, fall back to global pool
+    let others = shuffle(words.filter(x => x.g !== w.g));
+    if (others.length < 3) others = shuffle(ALL_WORDS.filter(x => x.g !== w.g));
+    others = others.slice(0, 3);
     if (others.length >= 3) qs.push({ type:'pick', word:w, choices:shuffle([w,...others]) });
   });
+  // Guarantee at least 6 questions — add extra listen cards for variety
+  const MIN_QUESTIONS = 6;
+  if (qs.length < MIN_QUESTIONS) {
+    const extra = shuffle(words).slice(0, MIN_QUESTIONS - qs.length);
+    extra.forEach(w => qs.push({ type:'listen', word:w }));
+  }
   return shuffle(qs).slice(0, Math.min(10, qs.length));
 }
 
@@ -2045,6 +2073,17 @@ function startReview() {
   _renderQ();
 }
 
+// Save SR snapshot to server when user quits mid-lesson.
+// Without this, all SR progress from the current session is lost
+// when syncFromServer replaces local cache on next login.
+function _saveSRMidLesson() {
+  if (!_currentProfileId) return;
+  const sr = Store.profile(_currentProfileId).sr || {};
+  if (Object.keys(sr).length === 0) return;
+  // Send a lightweight sr_update event — server merges by lastSeen
+  Store.addEvent(_currentProfileId, 'sr_update', { sr: { ...sr } });
+}
+
 function _renderQ() {
   const q = _questions[_qIdx];
   const pct = Math.round((_qIdx / _questions.length) * 100);
@@ -2052,7 +2091,7 @@ function _renderQ() {
   document.getElementById('progLabel').textContent = _qIdx + ' / ' + _questions.length;
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('nextBtn').onclick = _nextQ;
-  document.getElementById('backBtn').onclick = () => { AudioMgr.stop(); enterHome(_currentProfileId); };
+  document.getElementById('backBtn').onclick = () => { AudioMgr.stop(); _saveSRMidLesson(); enterHome(_currentProfileId); };
 
   if (q.type === 'listen') _renderListen(q);
   else _renderPick(q);
@@ -2332,12 +2371,6 @@ function _finishLesson() {
 
   // Maybe generate next AI lesson
   Store.maybeGenerateLesson(_currentProfileId);
-
-  // Log event to API
-  API.logEvent(_currentProfileId, _lesson ? 'lesson_complete' : 'review_complete', {
-    lessonId: _lesson ? _lesson.id : 'review',
-    xpEarned: _sessXP, correct: _sessCorrect, total: _questions.length
-  });
 
   // Build complete screen
   const perf = _sessCorrect / Math.max(1, _questions.length);
