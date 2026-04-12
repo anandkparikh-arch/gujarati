@@ -271,6 +271,7 @@ const CFG = {
   TTS_KEY:     'AIzaSyCRkcUmaD_ViELXitTFCtQlOf2HKPtaGK4',
   STORAGE_KEY: 'guj_v6',
   PIN_KEY:     'guj_pins',
+  OLD_KEYS:    ['guj_v5', 'guj_v4'],
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -954,11 +955,15 @@ const API = {
     const hasData = (payload.xp > 0) || (payload.completed && payload.completed.length > 0)
                  || (payload.streak > 0) || (payload.activityLog && payload.activityLog.length > 0);
     if (!hasData) return;
-    this.post('/v1/scores/' + profileId, payload).then(r => {
-      if (!r || r.error) {
-        setTimeout(() => this.post('/v1/scores/' + profileId, payload).catch(() => {}), 3000);
-      }
-    }).catch(() => {});
+    // Retry up to 3 times with exponential backoff
+    const attempt = (n) => {
+      this.post('/v1/scores/' + profileId, payload)
+        .then(r => {
+          if ((!r || r.error) && n < 3) setTimeout(() => attempt(n + 1), 2000 * n);
+        })
+        .catch(() => { if (n < 3) setTimeout(() => attempt(n + 1), 2000 * n); });
+    };
+    attempt(1);
   },
 
   // Pull scores for one profile from server
@@ -990,42 +995,164 @@ const API = {
    • localStorage for offline
    • PINs never leave the device
 ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   STORE  — Event-sourced state management
+   
+   Architecture:
+   • Every score change is an IMMUTABLE EVENT appended to a local log
+   • State (completed, xp, streak) is DERIVED from events
+   • Events are append-only: you cannot lose progress by overwriting state
+   • Events sync to API asynchronously with a persistent retry queue
+   • Two devices merge by taking the UNION of their event lists
+   • State can never go backwards because events cannot be removed
+   
+   Event types:
+     lesson_complete   { lessonId, xp, correct, total }
+     review_complete   { wordCount, xp }
+     xp_earned        { amount, source }
+     streak_day       { date }
+     ai_lesson_done   { lessonId, firestoreId }
+═══════════════════════════════════════════════════════ */
 const Store = {
-  data: {},         // { [profileId]: { xp, streak, completed, sr, ... } }
-  aiLessons: [],    // AI-generated lesson objects for current session
+  // In-memory state (derived from events on load)
+  data: {},
+  aiLessons: [],
 
-  // ── Load / Save ──────────────────────────────────────
+  // ── INIT ─────────────────────────────────────────────
   load() {
-    try { this.data = JSON.parse(localStorage.getItem(CFG.STORAGE_KEY) || '{}'); } catch(e) { this.data = {}; }
-    // Restore PINs (stored separately, never in API)
+    // 1. Load event log from localStorage
+    let events = {};
+    try { events = JSON.parse(localStorage.getItem('guj_events_v1') || '{}'); } catch(e) { events = {}; }
+
+    // 2. Migrate any legacy state-based storage into events
+    this._migrateFromState(events);
+
+    // 3. Derive current state from events
+    PROFILES.forEach(p => {
+      this.data[p.id] = this._deriveState(p.id, events[p.id] || []);
+    });
+
+    // 4. Restore PINs (stored separately, never in events/API)
     const pins = this._loadPins();
     PROFILES.forEach(p => {
-      if (!this.data[p.id]) this.data[p.id] = {};
       this.data[p.id].pin = pins[p.id] || null;
     });
-    this._migrate();
+
+    // 5. Process any pending API pushes from previous sessions
+    this._processPendingQueue();
   },
 
-  save(profileId) {
-    // 1. localStorage immediately
-    this._persist();
-    // 2. Push to API asynchronously
-    if (profileId && this.data[profileId]) {
-      API.pushScores(profileId, this.data[profileId]);
-    }
+  // ── EVENT APPEND ─────────────────────────────────────
+  // This is the ONLY way state changes. Always local-first.
+  addEvent(profileId, type, data) {
+    // Generate unique event ID
+    const id = 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const event = { id, profileId, type, data, ts: Date.now() };
+
+    // 1. Append to local event log (SYNCHRONOUS — this cannot fail)
+    const events = this._loadEvents();
+    if (!events[profileId]) events[profileId] = [];
+    events[profileId].push(event);
+    try { localStorage.setItem('guj_events_v1', JSON.stringify(events)); } catch(e) {}
+
+    // 2. Re-derive state from updated event log
+    const pin = this.data[profileId] ? this.data[profileId].pin : null;
+    this.data[profileId] = this._deriveState(profileId, events[profileId]);
+    this.data[profileId].pin = pin;
+
+    // 3. Queue API push (async — will retry until confirmed)
+    this._queuePush(profileId, event);
+
+    return event;
   },
 
-  _persist() {
-    this._savePins();
-    const store = {};
-    PROFILES.forEach(p => {
-      if (!this.data[p.id]) return;
-      const { pin, ...rest } = this.data[p.id];
-      store[p.id] = rest;
+  // ── STATE DERIVATION ─────────────────────────────────
+  // Replay events to compute current state. Pure function.
+  _deriveState(profileId, events) {
+    const state = {
+      xp: 0,
+      streak: 0,
+      lastDate: '',
+      completed: [],
+      activityLog: [],
+      sr: {},
+      lessonScores: {},
+    };
+
+    (events || []).forEach(evt => {
+      const d = evt.data || {};
+      switch(evt.type) {
+        case 'lesson_complete':
+          state.xp += (d.xp || 0);
+          if (d.lessonId && !state.completed.includes(d.lessonId)) {
+            state.completed.push(d.lessonId);
+          }
+          if (d.sr) {
+            Object.entries(d.sr).forEach(([word, entry]) => {
+              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
+            });
+          }
+          if (d.lessonId && d.pct !== undefined) {
+            const existing = state.lessonScores[d.lessonId];
+            if (!existing || d.pct > existing.pct) state.lessonScores[d.lessonId] = { pct: d.pct, correct: d.correct, total: d.total };
+          }
+          break;
+        case 'review_complete':
+          state.xp += (d.xp || 0);
+          if (d.sr) {
+            Object.entries(d.sr).forEach(([word, entry]) => {
+              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
+            });
+          }
+          break;
+        case 'xp_earned':
+          state.xp += (d.amount || 0);
+          break;
+        case 'streak_day':
+          if (d.date) {
+            if (!state.activityLog.includes(d.date)) state.activityLog.push(d.date);
+            state.activityLog.sort();
+            // Compute streak from activityLog
+            const sorted = [...state.activityLog].sort().reverse();
+            if (sorted.length > 0) {
+              state.lastDate = sorted[0];
+              let s = 1, i = 0;
+              while (i < sorted.length - 1) {
+                const diff = (new Date(sorted[i]) - new Date(sorted[i+1])) / 86400000;
+                if (diff === 1) { s++; i++; } else break;
+              }
+              state.streak = s;
+            }
+          }
+          break;
+        case 'sr_update':
+          if (d.sr) {
+            Object.entries(d.sr).forEach(([word, entry]) => {
+              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
+            });
+          }
+          break;
+      }
     });
-    try { localStorage.setItem(CFG.STORAGE_KEY, JSON.stringify(store)); } catch(e) {}
+
+    return state;
   },
 
+  // ── PROFILE ACCESS ───────────────────────────────────
+  profile(id) {
+    if (!this.data[id]) {
+      this.data[id] = this._deriveState(id, []);
+      const pins = this._loadPins();
+      this.data[id].pin = pins[id] || null;
+    }
+    return this.data[id];
+  },
+
+  // ── PIN MANAGEMENT ───────────────────────────────────
+  savePin(profileId, pin) {
+    if (this.data[profileId]) this.data[profileId].pin = pin;
+    this._savePins();
+  },
   _savePins() {
     const pins = {};
     PROFILES.forEach(p => { pins[p.id] = (this.data[p.id] && this.data[p.id].pin) || null; });
@@ -1035,100 +1162,225 @@ const Store = {
     try { return JSON.parse(localStorage.getItem(CFG.PIN_KEY) || '{}'); } catch(e) { return {}; }
   },
 
-  // ── Profile access ───────────────────────────────────
-  profile(id) {
-    if (!this.data[id]) this.data[id] = {};
-    const d = this.data[id];
-    if (!d.xp) d.xp = 0;
-    if (!d.streak) d.streak = 0;
-    if (!d.lastDate) d.lastDate = '';
-    if (!d.completed) d.completed = [];
-    if (!d.activityLog) d.activityLog = [];
-    if (!d.sr) d.sr = {};
-    if (!d.lessonScores) d.lessonScores = {};
-    return d;
-  },
+  // ── API SYNC ─────────────────────────────────────────
+  // On new device or after network outage: merge server events into local log
+  async syncFromServer(profileId) {
+    try {
+      // 1. First push any pending events to server
+      await this._flushPendingQueue(profileId);
 
-  // ── Sync from API after PIN entry ─────────────────────
-  async syncFromAPI(profileId) {
-    const remote = await API.pullScores(profileId);
-    if (!remote) return;
-    const local = this.profile(profileId);
-    // Never let XP go backwards
-    remote.xp = Math.max(local.xp || 0, remote.xp || 0);
-    // Merge arrays
-    if (remote.completed) remote.completed = [...new Set([...(local.completed||[]), ...remote.completed])];
-    if (remote.activityLog) remote.activityLog = [...new Set([...(local.activityLog||[]), ...remote.activityLog])].sort();
-    // Keep PIN
-    const pin = local.pin;
-    this.data[profileId] = { ...remote, pin };
-    this._persist();
-    // Also fetch AI lessons
-    this.aiLessons = await API.fetchGeneratedLessons(profileId);
-    this._injectAILessons();
-  },
+      // 2. Fetch server's version of state (for cross-device sync)
+      const remote = await API.pullScores(profileId);
+      if (!remote) return;
 
-  // ── AI lesson management ──────────────────────────────
-  _injectAILessons() {
-    this.aiLessons.forEach(l => {
-      if (!LESSONS.find(x => x.id === l.id)) {
-        LESSONS.push({ ...l, _ai: true });
-        if (l.words) {
-          l.words.forEach(w => {
-            if (!ALL_WORDS.find(x => x.g === w.g)) ALL_WORDS.push({ ...w, lessonId: l.id });
+      const localEvents = this._loadEvents();
+      if (!localEvents[profileId]) localEvents[profileId] = [];
+
+      // 3. If server has data the local log doesn't account for,
+      //    synthesize a "restore" event to bring local up to date
+      const localState = this.data[profileId];
+      const serverXP = remote.xp || 0;
+      const serverCompleted = remote.completed || [];
+
+      // Find any completed lessons on server that aren't in local state
+      const missingLessons = serverCompleted.filter(id => !(localState.completed||[]).includes(id));
+      const xpGap = serverXP - (localState.xp || 0);
+
+      if (missingLessons.length > 0 || xpGap > 0) {
+        // Server has more — synthesize a restore event
+        const restoreEvent = {
+          id: 'restore_' + Date.now(),
+          profileId,
+          type: 'lesson_complete',
+          data: {
+            lessonId: '__restore__',
+            xp: Math.max(0, xpGap),
+            _restoredLessons: missingLessons,
+            _restored: true,
+          },
+          ts: Date.now(),
+        };
+
+        // Add restore events for each missing lesson
+        missingLessons.forEach(lessonId => {
+          const evt = { id: 'restore_' + lessonId + '_' + Date.now(), profileId,
+            type: 'lesson_complete', data: { lessonId, xp: 0, _restored: true }, ts: Date.now() };
+          localEvents[profileId].push(evt);
+        });
+
+        if (xpGap > 0) {
+          localEvents[profileId].push({
+            id: 'xp_restore_' + Date.now(), profileId,
+            type: 'xp_earned', data: { amount: xpGap, source: 'restore' }, ts: Date.now()
           });
         }
+
+        try { localStorage.setItem('guj_events_v1', JSON.stringify(localEvents)); } catch(e) {}
+
+        // Re-derive state
+        const pin = this.data[profileId] ? this.data[profileId].pin : null;
+        this.data[profileId] = this._deriveState(profileId, localEvents[profileId]);
+        this.data[profileId].pin = pin;
+      }
+
+      // Also merge SR data from server (higher level wins)
+      const remoteSR = remote.sr || {};
+      Object.entries(remoteSR).forEach(([word, entry]) => {
+        const local = this.data[profileId].sr;
+        if (!local[word] || entry.level > local[word].level) {
+          local[word] = entry;
+        }
+      });
+
+    } catch(e) {
+      console.warn('syncFromServer failed:', e.message);
+    }
+
+    // Always fetch AI lessons regardless of sync result
+    try {
+      this.aiLessons = await API.fetchGeneratedLessons(profileId);
+      this._injectAILessons();
+    } catch(e) {}
+  },
+
+  // ── PERSISTENT PUSH QUEUE ────────────────────────────
+  // Events that haven't been confirmed by the server yet
+  _queuePush(profileId, event) {
+    const queue = this._loadQueue();
+    queue.push({ profileId, event, attempts: 0, queuedAt: Date.now() });
+    this._saveQueue(queue);
+    this._processPendingQueue();
+  },
+
+  _processPendingQueue() {
+    const queue = this._loadQueue();
+    if (!queue.length) return;
+    // Push current state for any profile with pending events
+    const profilesWithPending = [...new Set(queue.map(q => q.profileId))];
+    profilesWithPending.forEach(profileId => {
+      if (this.data[profileId]) {
+        const { pin, ...payload } = this.data[profileId];
+        this._pushToAPI(profileId, payload);
       }
     });
   },
 
-  // Trigger AI generation if needed
-  // Logic: generate when player is near end of curated lessons OR has low mastery
+  async _flushPendingQueue(profileId) {
+    const queue = this._loadQueue();
+    const pending = queue.filter(q => q.profileId === profileId);
+    if (!pending.length) return;
+    const { pin, ...payload } = this.data[profileId];
+    const ok = await this._pushToAPI(profileId, payload);
+    if (ok) {
+      const newQueue = queue.filter(q => q.profileId !== profileId);
+      this._saveQueue(newQueue);
+    }
+  },
+
+  _pushToAPI(profileId, payload) {
+    return new Promise(resolve => {
+      const attempt = (n) => {
+        API.post('/v1/scores/' + profileId, payload)
+          .then(r => {
+            if (r && !r.error) resolve(true);
+            else if (n < 4) setTimeout(() => attempt(n+1), 2000 * n);
+            else resolve(false);
+          })
+          .catch(() => { if (n < 4) setTimeout(() => attempt(n+1), 2000 * n); else resolve(false); });
+      };
+      attempt(1);
+    });
+  },
+
+  _loadQueue() {
+    try { return JSON.parse(localStorage.getItem('guj_push_queue') || '[]'); } catch(e) { return []; }
+  },
+  _saveQueue(q) {
+    try { localStorage.setItem('guj_push_queue', JSON.stringify(q)); } catch(e) {}
+  },
+
+  // ── HELPERS ──────────────────────────────────────────
+  _loadEvents() {
+    try { return JSON.parse(localStorage.getItem('guj_events_v1') || '{}'); } catch(e) { return {}; }
+  },
+
+  // ── AI LESSONS ───────────────────────────────────────
+  _injectAILessons() {
+    this.aiLessons.forEach(l => {
+      if (!LESSONS.find(x => x.id === l.id)) {
+        LESSONS.push({ ...l, _ai: true });
+        if (l.words) l.words.forEach(w => {
+          if (!ALL_WORDS.find(x => x.g === w.g)) ALL_WORDS.push({ ...w, lessonId: l.id });
+        });
+      }
+    });
+  },
+
   maybeGenerateLesson(profileId) {
     const d = this.profile(profileId);
     const completed = d.completed || [];
     const totalCurated = LESSONS.filter(l => !l._ai).length;
-    const completedCurated = completed.filter(id => LESSONS.find(l => l.id === id && !l._ai)).length;
+    const completedCurated = completed.filter(id => LESSONS.find(l => l.id===id && !l._ai)).length;
     const pendingAI = this.aiLessons.filter(l => !completed.includes(l.id)).length;
-
-    // Generate if: completed >50% of curated lessons AND fewer than 2 AI lessons pending
     if (completedCurated > totalCurated * 0.5 && pendingAI < 2) {
-      API.generateLesson(profileId).then(res => {
-        if (res && res.lesson) {
-          this.aiLessons.push(res.lesson);
-          this._injectAILessons();
-        }
-      }).catch(() => {});
+      API.generateLesson(profileId)
+        .then(res => { if (res && res.lesson) { this.aiLessons.push(res.lesson); this._injectAILessons(); }})
+        .catch(() => {});
     }
   },
 
-  // ── Migration from old lesson IDs ────────────────────
-  _migrate() {
-    const idMap = {
-      'phrases':'s2_daily','greetings':'s1_greetings','family':'s1_family',
-      'numbers':'s1_nums1','colors':'s1_colors','food':'s1_food',
-      'animals':'s1_animals','body':'s1_body','emotions':'s1_feelings',
-      'clothes':'s1_clothes','home':'s1_home','verbs':'s1_verbs1',
-      'days':'s1_days','weather':'s1_weather','daily_phrases':'s2_daily',
-      'i_want':'s2_iwant','this_is':'s2_thisis','adjectives':'s2_describe',
-      'where_is':'s2_where','ba_dada_call':'s4_ba_dada','at_dinner':'s4_dinner',
-      'morning_routine':'s4_morning',
-    };
-    PROFILES.forEach(p => {
-      const d = this.data[p.id];
-      if (!d || !d.completed) return;
-      Object.entries(idMap).forEach(([old, newId]) => {
-        if (d.completed.includes(old) && !d.completed.includes(newId)) d.completed.push(newId);
-      });
+  // ── MIGRATION from old state-based storage ───────────
+  _migrateFromState(events) {
+    const oldKeys = ['guj_v6', 'guj_v5', 'guj_v4'];
+    oldKeys.forEach(key => {
+      try {
+        const old = JSON.parse(localStorage.getItem(key) || '{}');
+        PROFILES.forEach(p => {
+          const d = old[p.id];
+          if (!d) return;
+          if (!events[p.id]) events[p.id] = [];
+          const existingLessons = new Set(
+            events[p.id].filter(e => e.type==='lesson_complete').map(e => e.data.lessonId)
+          );
+          // Create restore events for completed lessons not yet in event log
+          (d.completed || []).forEach(lessonId => {
+            if (!existingLessons.has(lessonId)) {
+              events[p.id].push({
+                id: 'migrate_' + lessonId + '_' + key,
+                profileId: p.id, type: 'lesson_complete',
+                data: { lessonId, xp: 50, _migrated: true }, ts: 0
+              });
+            }
+          });
+          // Migrate XP: add a restore event for any XP gap
+          const derivedXP = events[p.id]
+            .filter(e => e.type==='lesson_complete' || e.type==='xp_earned')
+            .reduce((sum, e) => sum + (e.data.xp || e.data.amount || 0), 0);
+          const xpGap = (d.xp || 0) - derivedXP;
+          if (xpGap > 0) {
+            events[p.id].push({
+              id: 'migrate_xp_' + key + '_' + p.id,
+              profileId: p.id, type: 'xp_earned',
+              data: { amount: xpGap, source: 'migration' }, ts: 0
+            });
+          }
+          // Migrate activity log
+          (d.activityLog || []).forEach(date => {
+            if (!events[p.id].find(e => e.type==='streak_day' && e.data.date===date)) {
+              events[p.id].push({
+                id: 'migrate_day_' + date + '_' + p.id,
+                profileId: p.id, type: 'streak_day',
+                data: { date }, ts: 0
+              });
+            }
+          });
+        });
+      } catch(e) {}
     });
+    try { localStorage.setItem('guj_events_v1', JSON.stringify(events)); } catch(e) {}
   },
 };
 
-/* ═══════════════════════════════════════════════════════
-   SPACED REPETITION  (SM-2 simplified)
-   Intervals: 1 → 3 → 7 → 14 → 30 → 60 days
-═══════════════════════════════════════════════════════ */
-const SR_INTERVALS = [1, 3, 7, 14, 30, 60];
 
 const SR = {
   record(profileId, wordG, correct) {
@@ -1624,8 +1876,7 @@ function _handlePin() {
     _renderPin('Confirm your PIN', 'Step 2 of 2', false);
   } else if (_pinMode === 'setup2') {
     if (_pinBuf === _pinFirst) {
-      d.pin = _pinBuf;
-      Store.save(_pinProfileId);
+      Store.savePin(_pinProfileId, _pinBuf);
       enterHome(_pinProfileId);
     } else {
       _pinBuf = ''; _pinFirst = ''; _pinMode = 'setup1';
@@ -1636,7 +1887,7 @@ function _handlePin() {
     if (_pinBuf === d.pin) {
       // Enter home immediately (no blocking), sync in background
       enterHome(_pinProfileId);
-      Store.syncFromAPI(_pinProfileId).then(() => {
+      Store.syncFromServer(_pinProfileId).then(() => {
         // Refresh home stats silently if still on home screen
         if (document.getElementById('homeScreen').classList.contains('active')) {
           refreshHomeStats();
@@ -1661,15 +1912,15 @@ function enterHome(profileId) {
   const p = meta(profileId);
   const d = Store.profile(profileId);
 
-  // Streak logic (ISO dates only — no timezone bugs)
+  // Streak — recorded as an event so it's durable
   const todayS = todayISO();
-  const yestS = new Date(Date.now()-86400000).toISOString().slice(0,10);
   const prevStreak = d.streak;
-  if (d.lastDate !== todayS) {
-    d.streak = (d.lastDate === yestS) ? d.streak + 1 : 1;
-    d.lastDate = todayS;
-    if (!(d.activityLog||[]).includes(todayS)) d.activityLog.push(todayS);
-    Store.save(profileId);
+  if (!(d.activityLog||[]).includes(todayS)) {
+    Store.addEvent(profileId, 'streak_day', { date: todayS });
+    // Re-read after event updates derived state
+    const pin = d.pin;
+    Object.assign(d, Store.profile(profileId));
+    d.pin = pin;
   }
 
   // Streak milestones
@@ -1933,8 +2184,7 @@ function _checkChoice(btn, selected, correct, correctLabel, word) {
   document.querySelectorAll('.choice-btn').forEach(b => { b.disabled = true; b.onclick = null; });
   const fb = document.getElementById('pickFb');
   const isCorrect = selected === correct;
-  SR.record(_currentProfileId, word.g, isCorrect);
-  Store.save(_currentProfileId);
+  SR.record(_currentProfileId, word.g, isCorrect); // captured in lesson_complete event
   if (isCorrect) {
     btn.className = 'choice-btn correct';
     fb.className = 'pick-feedback good show';
@@ -2009,8 +2259,7 @@ function _doRecord(expectedRoman, word) {
     result.innerHTML = `${randFB(level)}<div class="pronun-heard">We heard: "${heard}"</div>`;
     micBtn.disabled = false;
     const isCorrect = level === 'great' || level === 'ok';
-    SR.record(_currentProfileId, word.g, isCorrect);
-    Store.save(_currentProfileId);
+    SR.record(_currentProfileId, word.g, isCorrect); // captured in lesson_complete event
     if (isCorrect) {
       micBtn.className = 'mic-btn success';
       micBtn.textContent = '✓ Good job!';
@@ -2082,41 +2331,55 @@ function _finishLesson() {
   const p = meta(_currentProfileId);
   const prevLevel = getLevel(d.xp || 0);
 
-  // Award XP
-  d.xp = (d.xp || 0) + _sessXP;
+  // Capture current SR snapshot for the event
+  const srUpdates = {};
+  Object.entries(Store.profile(_currentProfileId).sr || {}).forEach(([word, entry]) => {
+    srUpdates[word] = { ...entry };
+  });
+
+  // Emit the durable event — this is the single write that cannot be lost
+  const pct = _questions.length > 0 ? _sessCorrect / _questions.length : 0;
+  if (_mode === 'review') {
+    Store.addEvent(_currentProfileId, 'review_complete', {
+      xp: _sessXP, correct: _sessCorrect, total: _questions.length, sr: srUpdates,
+    });
+  } else if (_lesson) {
+    Store.addEvent(_currentProfileId, 'lesson_complete', {
+      lessonId: _lesson.id, xp: _sessXP, correct: _sessCorrect,
+      total: _questions.length, pct, sr: srUpdates,
+    });
+  }
+
+  // Re-read state after event (guaranteed to be updated)
+  const pin = d.pin;
+  Object.assign(d, Store.profile(_currentProfileId));
+  d.pin = pin;
+
   const newLevel = getLevel(d.xp);
   const leveledUp = newLevel.name !== prevLevel.name;
 
-  // Record mastery
-  if (_lesson) SR.recordMastery(_currentProfileId, _lesson.id, _sessCorrect, _questions.length);
-
-  // Mark lesson complete
-  if (_mode !== 'review' && _lesson && !(d.completed||[]).includes(_lesson.id)) {
-    d.completed.push(_lesson.id);
-    // Mark all words as seen in SR
-    _lesson.words.forEach(w => {
-      if (!d.sr[w.g]) SR.record(_currentProfileId, w.g, true);
-    });
-    // Check for stage completion → Bholu gets new item
+  // Stage completion check for Bholu
+  if (_mode !== 'review' && _lesson) {
     const stageLessons = LESSONS.filter(l => l.stage === _lesson.stage);
-    if (stageLessons.every(l => d.completed.includes(l.id))) {
+    if (stageLessons.every(l => (d.completed||[]).includes(l.id))) {
       const item = BHOLU_ITEMS.find(b => b.stage === _lesson.stage);
       if (item) setTimeout(() => celebrate(item.emoji, `Stage ${_lesson.stage} complete! Bholu gets a ${item.label}!`, 'mega'), 1800);
     }
   }
 
-  // Log activity
+  // Log streak day
   const today = todayISO();
-  if (!(d.activityLog||[]).includes(today)) d.activityLog.push(today);
+  if (!(d.activityLog||[]).includes(today)) {
+    Store.addEvent(_currentProfileId, 'streak_day', { date: today });
+    Object.assign(d, Store.profile(_currentProfileId));
+    d.pin = pin;
+  }
 
   // Mark AI lesson complete on server
   if (_lesson && _lesson._ai && _lesson.firestoreId) {
     API.markLessonComplete(_currentProfileId, _lesson.firestoreId, { correct: _sessCorrect, total: _questions.length });
     Store.aiLessons = Store.aiLessons.map(l => l.id === _lesson.id ? {...l, completed:true} : l);
   }
-
-  // Save
-  Store.save(_currentProfileId);
 
   // Maybe generate next AI lesson
   Store.maybeGenerateLesson(_currentProfileId);
