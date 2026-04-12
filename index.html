@@ -1115,17 +1115,19 @@ const Store = {
 
   // ── PROFILE ACCESS ───────────────────────────────────
   profile(id) {
-    if (!this.data[id]) {
-      this.data[id] = {
-        xp: 0, streak: 0, lastDate: '', completed: [],
-        activityLog: [], sr: {}, lessonScores: {},
-        level: { name:'Beginner', icon:'🌱', min:0 },
-        bholuItems: [], needsReinforcement: [],
-      };
-      const pins = this._loadPins();
-      this.data[id].pin = pins[id] || null;
-    }
-    return this.data[id];
+    if (!this.data[id]) this.data[id] = {};
+    const d = this.data[id];
+    // Always ensure all fields exist — handles profiles loaded from old cache
+    if (d.xp           === undefined) d.xp           = 0;
+    if (d.streak       === undefined) d.streak       = 0;
+    if (!d.lastDate)                  d.lastDate      = '';
+    if (!d.completed)                 d.completed     = [];
+    if (!d.activityLog)               d.activityLog   = [];
+    if (!d.sr)                        d.sr            = {};
+    if (!d.lessonScores)              d.lessonScores  = {};
+    if (!d.bholuItems)                d.bholuItems    = [];
+    if (!d.needsReinforcement)        d.needsReinforcement = [];
+    return d;
   },
 
   // ── PIN MANAGEMENT ───────────────────────────────────
@@ -1344,7 +1346,7 @@ const SR = {
   // Words due for review today
   getDue(profileId) {
     const d = Store.profile(profileId);
-    const sr = d.sr;
+    const sr = d.sr || {};
     const today = todayISO();
     const seen = [], unseen = [];
     ALL_WORDS.forEach(w => {
