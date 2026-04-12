@@ -269,7 +269,7 @@ const CFG = {
   API_BASE:    'https://gujaratiapi-jg5pnhp7aa-uc.a.run.app',
   APP_KEY:     'guj-parikh-2026',
   TTS_KEY:     'AIzaSyCRkcUmaD_ViELXitTFCtQlOf2HKPtaGK4',
-  STORAGE_KEY: 'guj_v6',
+  STORAGE_KEY: 'guj_cache_v1',
   PIN_KEY:     'guj_pins',
   OLD_KEYS:    ['guj_v5', 'guj_v4'],
 };
@@ -977,6 +977,11 @@ const API = {
     this.post('/v1/events', { profileId, type, payload, appVersion: '3.0' }).catch(() => {});
   },
 
+  // Record event through scoring microservice (primary write path)
+  async recordEvent(profileId, type, data) {
+    return this.post('/v1/events/record', { profileId, type, data, clientTs: Date.now() });
+  },
+
   // AI lesson generation
   async generateLesson(profileId) {
     return this.post('/v1/lessons/generate/' + profileId, {});
@@ -1013,135 +1018,110 @@ const API = {
      streak_day       { date }
      ai_lesson_done   { lessonId, firestoreId }
 ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   STORE  — Thin client layer over the scoring microservice
+
+   Architecture:
+   • Scoring logic lives ENTIRELY on the server (Cloud Function)
+   • Client records raw events via POST /v1/events/record
+   • Server applies scoring engine, returns authoritative state
+   • Client caches last known state in localStorage (offline support)
+   • Offline: queue events, show cached state, sync on reconnect
+   • Local state can NEVER get out of sync permanently — server wins
+═══════════════════════════════════════════════════════ */
 const Store = {
-  // In-memory state (derived from events on load)
-  data: {},
+  data:      {},   // cached derived state per profileId
   aiLessons: [],
 
   // ── INIT ─────────────────────────────────────────────
   load() {
-    // 1. Load event log from localStorage
-    let events = {};
-    try { events = JSON.parse(localStorage.getItem('guj_events_v1') || '{}'); } catch(e) { events = {}; }
+    // Load cached state from localStorage
+    try { this.data = JSON.parse(localStorage.getItem('guj_cache_v1') || '{}'); } catch(e) { this.data = {}; }
 
-    // 2. Migrate any legacy state-based storage into events
-    this._migrateFromState(events);
-
-    // 3. Derive current state from events
-    PROFILES.forEach(p => {
-      this.data[p.id] = this._deriveState(p.id, events[p.id] || []);
-    });
-
-    // 4. Restore PINs (stored separately, never in events/API)
+    // Restore PINs
     const pins = this._loadPins();
     PROFILES.forEach(p => {
+      if (!this.data[p.id]) this.data[p.id] = {};
       this.data[p.id].pin = pins[p.id] || null;
     });
 
-    // 5. Process any pending API pushes from previous sessions
-    this._processPendingQueue();
+    // Migrate any legacy event log or state data
+    this._migrate();
+
+    // Process any queued offline events
+    this._processQueue();
   },
 
-  // ── EVENT APPEND ─────────────────────────────────────
-  // This is the ONLY way state changes. Always local-first.
-  addEvent(profileId, type, data) {
-    // Generate unique event ID
-    const id = 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    const event = { id, profileId, type, data, ts: Date.now() };
+  // ── RECORD EVENT ─────────────────────────────────────
+  // The single interface for all state changes.
+  // Sends event to server, gets authoritative state back.
+  // If offline: queues locally, applies optimistic update.
+  async addEvent(profileId, type, data) {
+    const clientTs = Date.now();
 
-    // 1. Append to local event log (SYNCHRONOUS — this cannot fail)
-    const events = this._loadEvents();
-    if (!events[profileId]) events[profileId] = [];
-    events[profileId].push(event);
-    try { localStorage.setItem('guj_events_v1', JSON.stringify(events)); } catch(e) {}
+    // Always cache immediately — offline safety net
+    this._optimisticUpdate(profileId, type, data);
 
-    // 2. Re-derive state from updated event log
-    const pin = this.data[profileId] ? this.data[profileId].pin : null;
-    this.data[profileId] = this._deriveState(profileId, events[profileId]);
-    this.data[profileId].pin = pin;
+    // Call server
+    const result = await API.post('/v1/events/record', { profileId, type, data, clientTs });
 
-    // 3. Queue API push (async — will retry until confirmed)
-    this._queuePush(profileId, event);
-
-    return event;
+    if (result && result.scores && !result.error) {
+      // Server returned authoritative state — use it
+      const pin = this.data[profileId]?.pin;
+      this.data[profileId] = { ...result.scores, pin };
+      this._persist();
+      return result;
+    } else {
+      // Server unavailable — queue for retry
+      this._queueEvent(profileId, type, data, clientTs);
+      return null;
+    }
   },
 
-  // ── STATE DERIVATION ─────────────────────────────────
-  // Replay events to compute current state. Pure function.
-  _deriveState(profileId, events) {
-    const state = {
-      xp: 0,
-      streak: 0,
-      lastDate: '',
-      completed: [],
-      activityLog: [],
-      sr: {},
-      lessonScores: {},
-    };
+  // ── OPTIMISTIC UPDATE ────────────────────────────────
+  // Applied immediately before server confirms.
+  // Keeps UI responsive. Server state overrides this on sync.
+  _optimisticUpdate(profileId, type, data) {
+    const d = this.profile(profileId);
+    const pin = d.pin;
 
-    (events || []).forEach(evt => {
-      const d = evt.data || {};
-      switch(evt.type) {
-        case 'lesson_complete':
-          state.xp += (d.xp || 0);
-          if (d.lessonId && !state.completed.includes(d.lessonId)) {
-            state.completed.push(d.lessonId);
-          }
-          if (d.sr) {
-            Object.entries(d.sr).forEach(([word, entry]) => {
-              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
-            });
-          }
-          if (d.lessonId && d.pct !== undefined) {
-            const existing = state.lessonScores[d.lessonId];
-            if (!existing || d.pct > existing.pct) state.lessonScores[d.lessonId] = { pct: d.pct, correct: d.correct, total: d.total };
-          }
-          break;
-        case 'review_complete':
-          state.xp += (d.xp || 0);
-          if (d.sr) {
-            Object.entries(d.sr).forEach(([word, entry]) => {
-              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
-            });
-          }
-          break;
-        case 'xp_earned':
-          state.xp += (d.amount || 0);
-          break;
-        case 'streak_day':
-          if (d.date) {
-            if (!state.activityLog.includes(d.date)) state.activityLog.push(d.date);
-            state.activityLog.sort();
-            // Compute streak from activityLog
-            const sorted = [...state.activityLog].sort().reverse();
-            if (sorted.length > 0) {
-              state.lastDate = sorted[0];
-              let s = 1, i = 0;
-              while (i < sorted.length - 1) {
-                const diff = (new Date(sorted[i]) - new Date(sorted[i+1])) / 86400000;
-                if (diff === 1) { s++; i++; } else break;
-              }
-              state.streak = s;
-            }
-          }
-          break;
-        case 'sr_update':
-          if (d.sr) {
-            Object.entries(d.sr).forEach(([word, entry]) => {
-              if (!state.sr[word] || entry.level > state.sr[word].level) state.sr[word] = entry;
-            });
-          }
-          break;
-      }
-    });
+    switch(type) {
+      case 'lesson_complete':
+        d.xp = (d.xp || 0) + (data.xp || 0);
+        if (data.lessonId && !(d.completed||[]).includes(data.lessonId)) {
+          if (!d.completed) d.completed = [];
+          d.completed.push(data.lessonId);
+        }
+        // Update level display (mirrors server constants)
+        d.level = getLevel(d.xp);
+        d.nextLevel = getNextLevel(d.xp);
+        d.bholuItems = getBholuItems(d.completed || []);
+        break;
+      case 'review_complete':
+        d.xp = (d.xp || 0) + (data.xp || 0);
+        d.level = getLevel(d.xp);
+        break;
+      case 'streak_day':
+        if (data.date) {
+          if (!d.activityLog) d.activityLog = [];
+          if (!d.activityLog.includes(data.date)) d.activityLog.push(data.date);
+        }
+        break;
+    }
 
-    return state;
+    d.pin = pin;
+    this._persist();
   },
 
   // ── PROFILE ACCESS ───────────────────────────────────
   profile(id) {
     if (!this.data[id]) {
-      this.data[id] = this._deriveState(id, []);
+      this.data[id] = {
+        xp: 0, streak: 0, lastDate: '', completed: [],
+        activityLog: [], sr: {}, lessonScores: {},
+        level: { name:'Beginner', icon:'🌱', min:0 },
+        bholuItems: [], needsReinforcement: [],
+      };
       const pins = this._loadPins();
       this.data[id].pin = pins[id] || null;
     }
@@ -1155,153 +1135,92 @@ const Store = {
   },
   _savePins() {
     const pins = {};
-    PROFILES.forEach(p => { pins[p.id] = (this.data[p.id] && this.data[p.id].pin) || null; });
+    PROFILES.forEach(p => { pins[p.id] = (this.data[p.id]?.pin) || null; });
     try { localStorage.setItem(CFG.PIN_KEY, JSON.stringify(pins)); } catch(e) {}
   },
   _loadPins() {
     try { return JSON.parse(localStorage.getItem(CFG.PIN_KEY) || '{}'); } catch(e) { return {}; }
   },
 
-  // ── API SYNC ─────────────────────────────────────────
-  // On new device or after network outage: merge server events into local log
+  // ── PERSIST ──────────────────────────────────────────
+  _persist() {
+    const store = {};
+    PROFILES.forEach(p => {
+      if (!this.data[p.id]) return;
+      const { pin, ...rest } = this.data[p.id];
+      store[p.id] = rest;
+    });
+    try { localStorage.setItem('guj_cache_v1', JSON.stringify(store)); } catch(e) {}
+  },
+
+  // ── SERVER SYNC ──────────────────────────────────────
+  // Called after PIN entry — pulls authoritative state from server
   async syncFromServer(profileId) {
     try {
-      // 1. First push any pending events to server
-      await this._flushPendingQueue(profileId);
+      // Flush any queued events first
+      await this._flushQueue(profileId);
 
-      // 2. Fetch server's version of state (for cross-device sync)
-      const remote = await API.pullScores(profileId);
-      if (!remote) return;
-
-      const localEvents = this._loadEvents();
-      if (!localEvents[profileId]) localEvents[profileId] = [];
-
-      // 3. If server has data the local log doesn't account for,
-      //    synthesize a "restore" event to bring local up to date
-      const localState = this.data[profileId];
-      const serverXP = remote.xp || 0;
-      const serverCompleted = remote.completed || [];
-
-      // Find any completed lessons on server that aren't in local state
-      const missingLessons = serverCompleted.filter(id => !(localState.completed||[]).includes(id));
-      const xpGap = serverXP - (localState.xp || 0);
-
-      if (missingLessons.length > 0 || xpGap > 0) {
-        // Server has more — synthesize a restore event
-        const restoreEvent = {
-          id: 'restore_' + Date.now(),
-          profileId,
-          type: 'lesson_complete',
-          data: {
-            lessonId: '__restore__',
-            xp: Math.max(0, xpGap),
-            _restoredLessons: missingLessons,
-            _restored: true,
-          },
-          ts: Date.now(),
-        };
-
-        // Add restore events for each missing lesson
-        missingLessons.forEach(lessonId => {
-          const evt = { id: 'restore_' + lessonId + '_' + Date.now(), profileId,
-            type: 'lesson_complete', data: { lessonId, xp: 0, _restored: true }, ts: Date.now() };
-          localEvents[profileId].push(evt);
-        });
-
-        if (xpGap > 0) {
-          localEvents[profileId].push({
-            id: 'xp_restore_' + Date.now(), profileId,
-            type: 'xp_earned', data: { amount: xpGap, source: 'restore' }, ts: Date.now()
-          });
-        }
-
-        try { localStorage.setItem('guj_events_v1', JSON.stringify(localEvents)); } catch(e) {}
-
-        // Re-derive state
-        const pin = this.data[profileId] ? this.data[profileId].pin : null;
-        this.data[profileId] = this._deriveState(profileId, localEvents[profileId]);
-        this.data[profileId].pin = pin;
+      // Pull authoritative state
+      const res = await API.get('/v1/scores/' + profileId);
+      if (res && res.scores) {
+        const pin = this.data[profileId]?.pin;
+        this.data[profileId] = { ...res.scores, pin };
+        this._persist();
       }
+    } catch(e) { console.warn('syncFromServer:', e.message); }
 
-      // Also merge SR data from server (higher level wins)
-      const remoteSR = remote.sr || {};
-      Object.entries(remoteSR).forEach(([word, entry]) => {
-        const local = this.data[profileId].sr;
-        if (!local[word] || entry.level > local[word].level) {
-          local[word] = entry;
-        }
-      });
-
-    } catch(e) {
-      console.warn('syncFromServer failed:', e.message);
-    }
-
-    // Always fetch AI lessons regardless of sync result
+    // Fetch AI lessons
     try {
       this.aiLessons = await API.fetchGeneratedLessons(profileId);
       this._injectAILessons();
     } catch(e) {}
   },
 
-  // ── PERSISTENT PUSH QUEUE ────────────────────────────
-  // Events that haven't been confirmed by the server yet
-  _queuePush(profileId, event) {
+  // ── OFFLINE EVENT QUEUE ──────────────────────────────
+  _queueEvent(profileId, type, data, ts) {
     const queue = this._loadQueue();
-    queue.push({ profileId, event, attempts: 0, queuedAt: Date.now() });
+    queue.push({ profileId, type, data, ts, attempts: 0 });
     this._saveQueue(queue);
-    this._processPendingQueue();
   },
 
-  _processPendingQueue() {
+  _processQueue() {
     const queue = this._loadQueue();
     if (!queue.length) return;
-    // Push current state for any profile with pending events
-    const profilesWithPending = [...new Set(queue.map(q => q.profileId))];
-    profilesWithPending.forEach(profileId => {
-      if (this.data[profileId]) {
-        const { pin, ...payload } = this.data[profileId];
-        this._pushToAPI(profileId, payload);
-      }
-    });
+    // Deduplicate by profileId and flush
+    const profiles = [...new Set(queue.map(q => q.profileId))];
+    profiles.forEach(pid => this._flushQueue(pid).catch(() => {}));
   },
 
-  async _flushPendingQueue(profileId) {
+  async _flushQueue(profileId) {
     const queue = this._loadQueue();
     const pending = queue.filter(q => q.profileId === profileId);
     if (!pending.length) return;
-    const { pin, ...payload } = this.data[profileId];
-    const ok = await this._pushToAPI(profileId, payload);
-    if (ok) {
-      const newQueue = queue.filter(q => q.profileId !== profileId);
-      this._saveQueue(newQueue);
+
+    let allOk = true;
+    for (const item of pending) {
+      const result = await API.post('/v1/events/record', {
+        profileId: item.profileId, type: item.type, data: item.data, clientTs: item.ts,
+      });
+      if (!result || result.error) { allOk = false; break; }
+      // Update cache with server response
+      if (result.scores) {
+        const pin = this.data[profileId]?.pin;
+        this.data[profileId] = { ...result.scores, pin };
+      }
+    }
+
+    if (allOk) {
+      const remaining = queue.filter(q => q.profileId !== profileId);
+      this._saveQueue(remaining);
+      this._persist();
     }
   },
 
-  _pushToAPI(profileId, payload) {
-    return new Promise(resolve => {
-      const attempt = (n) => {
-        API.post('/v1/scores/' + profileId, payload)
-          .then(r => {
-            if (r && !r.error) resolve(true);
-            else if (n < 4) setTimeout(() => attempt(n+1), 2000 * n);
-            else resolve(false);
-          })
-          .catch(() => { if (n < 4) setTimeout(() => attempt(n+1), 2000 * n); else resolve(false); });
-      };
-      attempt(1);
-    });
-  },
-
   _loadQueue() {
-    try { return JSON.parse(localStorage.getItem('guj_push_queue') || '[]'); } catch(e) { return []; }
+    try { return JSON.parse(localStorage.getItem('guj_queue_v1') || '[]'); } catch(e) { return []; }
   },
   _saveQueue(q) {
-    try { localStorage.setItem('guj_push_queue', JSON.stringify(q)); } catch(e) {}
-  },
-
-  // ── HELPERS ──────────────────────────────────────────
-  _loadEvents() {
-    try { return JSON.parse(localStorage.getItem('guj_events_v1') || '{}'); } catch(e) { return {}; }
+    try { localStorage.setItem('guj_queue_v1', JSON.stringify(q)); } catch(e) {}
   },
 
   // ── AI LESSONS ───────────────────────────────────────
@@ -1324,60 +1243,86 @@ const Store = {
     const pendingAI = this.aiLessons.filter(l => !completed.includes(l.id)).length;
     if (completedCurated > totalCurated * 0.5 && pendingAI < 2) {
       API.generateLesson(profileId)
-        .then(res => { if (res && res.lesson) { this.aiLessons.push(res.lesson); this._injectAILessons(); }})
+        .then(res => { if (res?.lesson) { this.aiLessons.push(res.lesson); this._injectAILessons(); }})
         .catch(() => {});
     }
   },
 
-  // ── MIGRATION from old state-based storage ───────────
-  _migrateFromState(events) {
-    const oldKeys = ['guj_v6', 'guj_v5', 'guj_v4'];
-    oldKeys.forEach(key => {
+  // ── MIGRATION ────────────────────────────────────────
+  // Convert any legacy data (event log, old state) to the server
+  // by submitting restore events. Runs once on first load with new code.
+  _migrate() {
+    const migrated = localStorage.getItem('guj_migrated_v3');
+    if (migrated) return;
+
+    // Try to find the richest available data from old storage keys
+    const oldKeys = ['guj_events_v1', 'guj_cache_v1', 'guj_v6', 'guj_v5', 'guj_v4'];
+    const merged = {}; // profileId -> { xp, completed, activityLog }
+
+    // First try event log (most accurate)
+    try {
+      const events = JSON.parse(localStorage.getItem('guj_events_v1') || '{}');
+      PROFILES.forEach(p => {
+        if (!events[p.id]) return;
+        merged[p.id] = { xp: 0, completed: [], activityLog: [] };
+        events[p.id].forEach(evt => {
+          if (evt.type === 'lesson_complete' && evt.data?.lessonId && evt.data.lessonId !== '__restore__') {
+            merged[p.id].xp += (evt.data.xp || 0);
+            if (!merged[p.id].completed.includes(evt.data.lessonId)) merged[p.id].completed.push(evt.data.lessonId);
+          }
+          if (evt.type === 'streak_day' && evt.data?.date && !merged[p.id].activityLog.includes(evt.data.date)) {
+            merged[p.id].activityLog.push(evt.data.date);
+          }
+          if (evt.type === 'xp_earned') merged[p.id].xp += (evt.data?.amount || 0);
+        });
+      });
+    } catch(e) {}
+
+    // Then layer in any state-based storage (for profiles not in event log)
+    ['guj_v6','guj_v5','guj_v4'].forEach(key => {
       try {
         const old = JSON.parse(localStorage.getItem(key) || '{}');
         PROFILES.forEach(p => {
           const d = old[p.id];
           if (!d) return;
-          if (!events[p.id]) events[p.id] = [];
-          const existingLessons = new Set(
-            events[p.id].filter(e => e.type==='lesson_complete').map(e => e.data.lessonId)
-          );
-          // Create restore events for completed lessons not yet in event log
-          (d.completed || []).forEach(lessonId => {
-            if (!existingLessons.has(lessonId)) {
-              events[p.id].push({
-                id: 'migrate_' + lessonId + '_' + key,
-                profileId: p.id, type: 'lesson_complete',
-                data: { lessonId, xp: 50, _migrated: true }, ts: 0
-              });
-            }
-          });
-          // Migrate XP: add a restore event for any XP gap
-          const derivedXP = events[p.id]
-            .filter(e => e.type==='lesson_complete' || e.type==='xp_earned')
-            .reduce((sum, e) => sum + (e.data.xp || e.data.amount || 0), 0);
-          const xpGap = (d.xp || 0) - derivedXP;
-          if (xpGap > 0) {
-            events[p.id].push({
-              id: 'migrate_xp_' + key + '_' + p.id,
-              profileId: p.id, type: 'xp_earned',
-              data: { amount: xpGap, source: 'migration' }, ts: 0
-            });
-          }
-          // Migrate activity log
-          (d.activityLog || []).forEach(date => {
-            if (!events[p.id].find(e => e.type==='streak_day' && e.data.date===date)) {
-              events[p.id].push({
-                id: 'migrate_day_' + date + '_' + p.id,
-                profileId: p.id, type: 'streak_day',
-                data: { date }, ts: 0
-              });
-            }
-          });
+          if (!merged[p.id]) merged[p.id] = { xp: 0, completed: [], activityLog: [] };
+          if ((d.xp || 0) > (merged[p.id].xp || 0)) merged[p.id].xp = d.xp;
+          (d.completed || []).forEach(id => { if (!merged[p.id].completed.includes(id)) merged[p.id].completed.push(id); });
+          (d.activityLog || []).forEach(dt => { if (!merged[p.id].activityLog.includes(dt)) merged[p.id].activityLog.push(dt); });
         });
       } catch(e) {}
     });
-    try { localStorage.setItem('guj_events_v1', JSON.stringify(events)); } catch(e) {}
+
+    // Push restore events to server for any profile with legacy data
+    // Uses a short delay to avoid hammering API on first load
+    let delay = 500;
+    PROFILES.forEach(p => {
+      const m = merged[p.id];
+      if (!m || (!m.xp && !m.completed.length)) return;
+      setTimeout(() => {
+        API.post('/v1/events/record', {
+          profileId: p.id,
+          type: 'lesson_complete',
+          data: {
+            lessonId: '__restore__',
+            xp: m.xp,
+            _restoredLessons: m.completed,
+            _migrated: true,
+            activityLog: m.activityLog,
+          },
+          clientTs: Date.now(),
+        }).then(res => {
+          if (res?.scores) {
+            const pin = this.data[p.id]?.pin;
+            this.data[p.id] = { ...res.scores, pin };
+            this._persist();
+          }
+        }).catch(() => {});
+      }, delay);
+      delay += 300;
+    });
+
+    localStorage.setItem('guj_migrated_v3', '1');
   },
 };
 
