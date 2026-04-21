@@ -972,6 +972,11 @@ const API = {
     return res && res.scores ? res.scores : null;
   },
 
+  // Log a user event (fire and forget)
+  logEvent(profileId, type, payload = {}) {
+    this.post('/v1/events', { profileId, type, payload, appVersion: '3.0' }).catch(() => {});
+  },
+
   // Record event through scoring microservice (primary write path)
   async recordEvent(profileId, type, data) {
     return this.post('/v1/events/record', { profileId, type, data, clientTs: Date.now() });
@@ -1025,8 +1030,9 @@ const API = {
    • Local state can NEVER get out of sync permanently — server wins
 ═══════════════════════════════════════════════════════ */
 const Store = {
-  data:      {},   // cached derived state per profileId
-  aiLessons: [],
+  data:        {},    // cached derived state per profileId (LOCAL — used for writes)
+  aiLessons:   [],
+  leaderboard: null,  // fresh server data for ALL profiles (READ-ONLY — display only, never used for writes)
 
   // ── INIT ─────────────────────────────────────────────
   load() {
@@ -1150,6 +1156,23 @@ const Store = {
     try { localStorage.setItem('guj_cache_v1', JSON.stringify(store)); } catch(e) {}
   },
 
+  // ── FETCH LEADERBOARD (display-only, all profiles) ───
+  // Populates Store.leaderboard (a SEPARATE read-only bucket).
+  // NEVER writes to Store.data — that would risk overwriting
+  // the signed-in user's pending optimistic updates.
+  async fetchLeaderboard() {
+    try {
+      const res = await API.get('/v1/leaderboard');
+      if (res && Array.isArray(res.leaderboard)) {
+        const map = {};
+        res.leaderboard.forEach(row => { map[row.profileId] = row; });
+        this.leaderboard = map;
+        return true;
+      }
+    } catch(e) { console.warn('fetchLeaderboard:', e.message); }
+    return false;
+  },
+
   // ── SERVER SYNC ──────────────────────────────────────
   // Called after PIN entry — pulls authoritative state from server
   async syncFromServer(profileId) {
@@ -1235,21 +1258,10 @@ const Store = {
   maybeGenerateLesson(profileId) {
     const d = this.profile(profileId);
     const completed = d.completed || [];
-    const sr = d.sr || {};
     const totalCurated = LESSONS.filter(l => !l._ai).length;
     const completedCurated = completed.filter(id => LESSONS.find(l => l.id===id && !l._ai)).length;
     const pendingAI = this.aiLessons.filter(l => !completed.includes(l.id)).length;
-
-    // Count persistent failures — words stuck at level 0-1 that have been seen
-    const stuckCount = Object.values(sr).filter(e => e.level <= 1 && e.lastSeen).length;
-
-    // Trigger if: (a) past 50% of curated curriculum, OR (b) 5+ stuck words
-    // Both require < 2 pending AI lessons in queue
-    const shouldGenerate = pendingAI < 2 && (
-      completedCurated > totalCurated * 0.5 || stuckCount >= 5
-    );
-
-    if (shouldGenerate) {
+    if (completedCurated > totalCurated * 0.5 && pendingAI < 2) {
       API.generateLesson(profileId)
         .then(res => { if (res?.lesson) { this.aiLessons.push(res.lesson); this._injectAILessons(); }})
         .catch(() => {});
@@ -1349,28 +1361,21 @@ const SR = {
     e.lastSeen = todayISO();
   },
 
-  // Words due for review today — prioritizes stuck words (persistent failures)
+  // Words due for review today
   getDue(profileId) {
     const d = Store.profile(profileId);
     const sr = d.sr || {};
     const today = todayISO();
-    const stuck = [], due = [], unseen = [];
+    const seen = [], unseen = [];
     ALL_WORDS.forEach(w => {
       const e = sr[w.g];
       if (e && e.nextReview) {
-        if (e.nextReview <= today) {
-          // Stuck: seen before, still at level 0-1 — these are persistent failures
-          if (e.level <= 1) stuck.push(w);
-          else due.push(w);
-        }
+        if (e.nextReview <= today) seen.push(w);
       } else {
         if ((d.completed||[]).includes(w.lessonId)) unseen.push(w);
       }
     });
-    // Stuck words first, then normally due, then fill with unseen from completed lessons
-    const combined = [...stuck, ...due];
-    const remaining = Math.max(0, 10 - combined.length);
-    return [...combined, ...unseen.slice(0, remaining)];
+    return [...seen, ...unseen.slice(0, Math.max(0, 10 - seen.length))];
   },
 
   getDueCount(profileId) { return this.getDue(profileId).length; },
@@ -1685,7 +1690,18 @@ function buildWotd() {
 function buildChallenge() {
   const week = Math.floor(Date.now() / (7*86400000));
   const lesson = LESSONS[week % LESSONS.length];
-  const completers = PROFILES.filter(p => (Store.profile(p.id).completed||[]).includes(lesson.id));
+  const lb = Store.leaderboard;  // server data (may be null if offline / first load)
+  // A profile counts as "completed" if EITHER server OR local cache says so.
+  // Union is strictly additive — consistent with the core principle that
+  // progress can never be lost. Server data keeps other devices in sync;
+  // local cache protects the signed-in user's fresh optimistic updates.
+  const isCompletedBy = p => {
+    const remote = lb ? lb[p.id] : null;
+    const remoteHas = remote && Array.isArray(remote.completed) && remote.completed.includes(lesson.id);
+    const localHas = (Store.profile(p.id).completed || []).includes(lesson.id);
+    return remoteHas || localHas;
+  };
+  const completers = PROFILES.filter(isCompletedBy);
   const pct = Math.round((completers.length / PROFILES.length) * 100);
   document.getElementById('challengeSection').innerHTML = `
     <div class="challenge-card">
@@ -1714,10 +1730,18 @@ function buildChallenge() {
 function buildLeaderboard(containerId, activeId) {
   const today = new Date();
   const last10 = Array.from({length:10},(_,i) => { const d=new Date(today); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10); });
+  const lb = Store.leaderboard;  // server data (may be null if offline / first load)
   const rows = PROFILES.map(p => {
-    const d = Store.profile(p.id);
-    const log = d.activityLog || [];
-    return { p, d, days10: last10.filter(x=>log.includes(x)).length, allDays: log.length };
+    // Prefer fresh server data; fall back to local cache if server unreachable.
+    // For the signed-in user, local cache is also authoritative because
+    // optimistic updates may be ahead of the server.
+    const remote = lb ? lb[p.id] : null;
+    const local  = Store.profile(p.id);
+    if (remote && p.id !== activeId) {
+      return { p, d: local, days10: remote.days10 || 0, allDays: remote.allTimeDays || 0 };
+    }
+    const log = local.activityLog || [];
+    return { p, d: local, days10: last10.filter(x=>log.includes(x)).length, allDays: log.length };
   });
   const s10   = [...rows].sort((a,b) => b.days10 - a.days10);
   const sAll  = [...rows].sort((a,b) => b.allDays - a.allDays);
@@ -1739,7 +1763,16 @@ function buildLeaderboard(containerId, activeId) {
 }
 
 function buildBholuLogin() {
-  const allCompleted = new Set(PROFILES.flatMap(p => Store.profile(p.id).completed || []));
+  const lb = Store.leaderboard;
+  // Union of ALL profiles' completed lessons (server OR local) for the
+  // family-wide wardrobe. Additive-only — never drops a completion,
+  // so Bholu items can never disappear.
+  const allCompleted = new Set();
+  PROFILES.forEach(p => {
+    const remote = lb ? lb[p.id] : null;
+    if (remote && Array.isArray(remote.completed)) remote.completed.forEach(id => allCompleted.add(id));
+    (Store.profile(p.id).completed || []).forEach(id => allCompleted.add(id));
+  });
   const items = getBholuItems([...allCompleted]);
   const el = document.getElementById('bholuSection');
   if (!el) return;
@@ -1765,13 +1798,20 @@ function buildLogin() {
 
   const grid = document.getElementById('profileGrid');
   grid.innerHTML = '';
+  const lb = Store.leaderboard;  // server data (may be null)
   PROFILES.forEach(p => {
-    const d = Store.profile(p.id);
+    const local = Store.profile(p.id);
+    const remote = lb ? lb[p.id] : null;
+    // Prefer server for XP / streak / lastDate — that's the whole point of this fix.
+    // `completed[]` and SR stay local (server doesn't return them on leaderboard endpoint).
+    const xp       = remote ? (remote.xp || 0)       : (local.xp || 0);
+    const streak   = remote ? (remote.streak || 0)   : (local.streak || 0);
+    const lastDate = remote ? (remote.lastActive || '') : (local.lastDate || '');
     const due = SR.getDueCount(p.id);
     const todayS = todayISO();
     const yestS = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    const atRisk = d.streak > 0 && d.lastDate !== todayS && d.lastDate !== yestS;
-    const items = getBholuItems(d.completed || []);
+    const atRisk = streak > 0 && lastDate !== todayS && lastDate !== yestS;
+    const items = getBholuItems(local.completed || []);
 
     const card = document.createElement('div');
     card.className = 'profile-card';
@@ -1780,8 +1820,8 @@ function buildLogin() {
       ${due > 0 ? `<div class="review-badge">📚 ${due} due</div>` : ''}
       <div class="profile-avatar">${profileEmoji(p, 44)}</div>
       <div class="profile-name">${p.name}</div>
-      <div class="profile-xp">⭐ ${d.xp||0} XP · ${getLevel(d.xp||0).icon} ${getLevel(d.xp||0).name}</div>
-      <div class="profile-streak" style="color:${d.streak>0?'#e85d04':'#ccc'}">${d.streak>0?'🔥 '+d.streak+' day streak':'No streak yet'}</div>
+      <div class="profile-xp">⭐ ${xp} XP · ${getLevel(xp).icon} ${getLevel(xp).name}</div>
+      <div class="profile-streak" style="color:${streak>0?'#e85d04':'#ccc'}">${streak>0?'🔥 '+streak+' day streak':'No streak yet'}</div>
       ${items.length > 0 ? `<div style="font-size:11px;color:#1D9E75;font-weight:600;margin-top:4px">${items.map(i=>i.emoji).join('')} Bholu dressed up!</div>` : ''}
     `;
     card.onclick = () => selectProfile(p.id);
@@ -1933,18 +1973,12 @@ function buildReviewSection() {
   const due = SR.getDue(_currentProfileId);
   const el = document.getElementById('reviewSection');
   if (due.length === 0) { el.innerHTML = ''; return; }
-  // Count how many are stuck (persistent failures)
-  const sr = Store.profile(_currentProfileId).sr || {};
-  const stuckCount = due.filter(w => { const e = sr[w.g]; return e && e.level <= 1 && e.lastSeen; }).length;
-  const sub = stuckCount > 0
-    ? `${stuckCount} tricky word${stuckCount!==1?'s':''} need extra practice`
-    : 'Spaced repetition keeps words fresh in memory';
   el.innerHTML = `
     <div class="review-card" id="reviewCard">
       <div class="review-icon">🧠</div>
       <div class="review-info">
         <div class="review-title">Daily Review — ${due.length} word${due.length!==1?'s':''} due</div>
-        <div class="review-sub">${sub}</div>
+        <div class="review-sub">Spaced repetition keeps words fresh in memory</div>
       </div>
       <div class="review-arrow">→</div>
     </div>`;
@@ -1974,7 +2008,7 @@ function buildLessonList() {
 
     stageLessons.forEach((lesson, idx) => {
       const done = completed.includes(lesson.id);
-      const locked = !prevDone;  // only locked if previous stage incomplete
+      const locked = !prevDone || (idx > 0 && !completed.includes(stageLessons[idx-1].id));
       const needsReinf = done && SR.needsReinforcement(_currentProfileId, lesson.id);
       const mastery = SR.getMastery(_currentProfileId, lesson.id);
       const hasTpr = lesson.words.some(w => w.tpr);
@@ -1997,7 +2031,7 @@ function buildLessonList() {
         </div>`;
 
       if (!locked) {
-        row.onclick = () => startLesson(lesson);
+        row.onclick = () => needsReinf ? startReinforcement(lesson) : startLesson(lesson);
       }
       list.appendChild(row);
     });
@@ -2009,6 +2043,14 @@ function doLogout() {
   _currentProfileId = null;
   buildLogin();
   showScreen('loginScreen');
+  // Refresh leaderboard from server — the user just finished activity, others may
+  // want to see their updated totals. Fire and forget; buildLogin() already
+  // rendered with local cache so there's no flicker if this fails.
+  Store.fetchLeaderboard().then(ok => {
+    if (ok && document.getElementById('loginScreen').classList.contains('active')) {
+      buildLogin();
+    }
+  });
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2030,18 +2072,9 @@ function _buildQuestions(words) {
   words.forEach(w => qs.push({ type:'listen', word:w }));
   // Each word gets one pick card (if enough words in pool for distractors)
   words.forEach(w => {
-    // Try lesson words first, fall back to global pool
-    let others = shuffle(words.filter(x => x.g !== w.g));
-    if (others.length < 3) others = shuffle(ALL_WORDS.filter(x => x.g !== w.g));
-    others = others.slice(0, 3);
+    const others = shuffle(ALL_WORDS.filter(x => x.g !== w.g)).slice(0, 3);
     if (others.length >= 3) qs.push({ type:'pick', word:w, choices:shuffle([w,...others]) });
   });
-  // Guarantee at least 6 questions — add extra listen cards for variety
-  const MIN_QUESTIONS = 6;
-  if (qs.length < MIN_QUESTIONS) {
-    const extra = shuffle(words).slice(0, MIN_QUESTIONS - qs.length);
-    extra.forEach(w => qs.push({ type:'listen', word:w }));
-  }
   return shuffle(qs).slice(0, Math.min(10, qs.length));
 }
 
@@ -2073,17 +2106,6 @@ function startReview() {
   _renderQ();
 }
 
-// Save SR snapshot to server when user quits mid-lesson.
-// Without this, all SR progress from the current session is lost
-// when syncFromServer replaces local cache on next login.
-function _saveSRMidLesson() {
-  if (!_currentProfileId) return;
-  const sr = Store.profile(_currentProfileId).sr || {};
-  if (Object.keys(sr).length === 0) return;
-  // Send a lightweight sr_update event — server merges by lastSeen
-  Store.addEvent(_currentProfileId, 'sr_update', { sr: { ...sr } });
-}
-
 function _renderQ() {
   const q = _questions[_qIdx];
   const pct = Math.round((_qIdx / _questions.length) * 100);
@@ -2091,7 +2113,7 @@ function _renderQ() {
   document.getElementById('progLabel').textContent = _qIdx + ' / ' + _questions.length;
   document.getElementById('nextBtn').className = 'next-btn';
   document.getElementById('nextBtn').onclick = _nextQ;
-  document.getElementById('backBtn').onclick = () => { AudioMgr.stop(); _saveSRMidLesson(); enterHome(_currentProfileId); };
+  document.getElementById('backBtn').onclick = () => { AudioMgr.stop(); enterHome(_currentProfileId); };
 
   if (q.type === 'listen') _renderListen(q);
   else _renderPick(q);
@@ -2372,6 +2394,12 @@ function _finishLesson() {
   // Maybe generate next AI lesson
   Store.maybeGenerateLesson(_currentProfileId);
 
+  // Log event to API
+  API.logEvent(_currentProfileId, _lesson ? 'lesson_complete' : 'review_complete', {
+    lessonId: _lesson ? _lesson.id : 'review',
+    xpEarned: _sessXP, correct: _sessCorrect, total: _questions.length
+  });
+
   // Build complete screen
   const perf = _sessCorrect / Math.max(1, _questions.length);
   const isMega = perf >= 0.9;
@@ -2411,26 +2439,16 @@ Store.load();
 Confetti.init();
 buildLogin();
 
-// Background: warm up API so Cloud Function is ready by the time user enters PIN
+// Background: fetch fresh leaderboard data from server so profile cards
+// show accurate cross-device progress. This ONLY populates Store.leaderboard
+// (a read-only display bucket). It does NOT touch Store.data, so it cannot
+// interfere with the current user's pending writes or optimistic updates.
 if (CFG.API_BASE) {
-  fetch(CFG.API_BASE + '/v1/leaderboard', { headers:{'X-Api-Key':CFG.APP_KEY} })
-    .then(r => r.json())
-    .then(data => {
-      // If API returned fresh leaderboard, silently update profiles
-      if (data && data.leaderboard) {
-        let changed = false;
-        data.leaderboard.forEach(remote => {
-          const local = Store.profile(remote.profileId);
-          const safeXP = Math.max(local.xp||0, remote.xp||0);
-          if (safeXP !== (local.xp||0)) { local.xp = safeXP; changed = true; }
-        });
-        if (changed) {
-          Store._persist();
-          if (document.getElementById('loginScreen').classList.contains('active')) buildLogin();
-        }
-      }
-    })
-    .catch(() => {});
+  Store.fetchLeaderboard().then(ok => {
+    if (ok && document.getElementById('loginScreen').classList.contains('active')) {
+      buildLogin();  // re-render with fresh data
+    }
+  });
 }
 
 </script>
