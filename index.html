@@ -1029,52 +1029,176 @@ const API = {
    • Offline: queue events, show cached state, sync on reconnect
    • Local state can NEVER get out of sync permanently — server wins
 ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   STORE — server-is-truth architecture (rewritten 2026-04-21)
+
+   Design principles:
+   1. Server is the single source of truth for all derived state.
+   2. On app load, fetch authoritative state from server and display that.
+   3. localStorage is a short-term offline buffer, not a parallel reality.
+   4. When a user acts, optimistic UI is fine, but the cached number is
+      whatever the server confirms, not whatever we guessed.
+   5. If server disagrees with local after a write, server wins. Period.
+      (Past implementations had a "never reduce" rule that let local drift
+      from server indefinitely — that rule is gone. It papered over the
+      real problem, which was the server being broken; we've now fixed the
+      server, so the rule is counterproductive.)
+   6. Offline behavior: queue events locally, show cached state, flush on
+      reconnect. Surface "offline" visually so the user knows.
+
+   State:
+     data       — per-profile cache. Populated from server on load, updated
+                  from server responses to events. Always reflects what we
+                  most recently heard from the server (or a fresh optimistic
+                  update awaiting confirmation).
+     leaderboard — lightweight per-profile summary from /v1/leaderboard.
+                  Used to render the login screen's cross-profile views
+                  (leaderboard cards, challenge, family bholu) without having
+                  to fetch each profile's full state. Populated by the
+                  server-first load.
+     online     — set to false if the initial server fetch failed, triggers
+                  "offline" banner. Clears when a subsequent call succeeds.
+═══════════════════════════════════════════════════════ */
 const Store = {
-  data:        {},    // cached derived state per profileId (LOCAL — used for writes)
+  data:        {},     // per-profile cache, authoritative = last server response
   aiLessons:   [],
-  leaderboard: null,  // fresh server data for ALL profiles (READ-ONLY — display only, never used for writes)
+  leaderboard: null,   // lightweight server snapshot for all profiles
+  online:      true,   // false if server unreachable; drives offline banner
 
-  // ── INIT ─────────────────────────────────────────────
-  load() {
-    // Load cached state from localStorage
+  // ── SYNC INIT (localStorage only — used to paint a first frame fast) ─
+  // Called synchronously at startup so the loading screen isn't blank.
+  // After this, loadFromServer() MUST be called to get authoritative state.
+  loadSync() {
     try { this.data = JSON.parse(localStorage.getItem('guj_cache_v1') || '{}'); } catch(e) { this.data = {}; }
-
-    // Restore PINs
     const pins = this._loadPins();
     PROFILES.forEach(p => {
       if (!this.data[p.id]) this.data[p.id] = {};
       this.data[p.id].pin = pins[p.id] || null;
     });
-
-    // Migrate any legacy event log or state data
+    // One-shot legacy migration (no-op after first run; flag is persistent)
     this._migrate();
-
-    // Process any queued offline events
+    // Flush any queued offline events in the background
     this._processQueue();
   },
 
-  // ── RECORD EVENT ─────────────────────────────────────
-  // The single interface for all state changes.
-  // Sends event to server, gets authoritative state back.
-  // If offline: queues locally, applies optimistic update.
+  // ── ASYNC LOAD FROM SERVER — THE PRIMARY LOAD PATH ────────────────
+  // Fetches /v1/leaderboard and overwrites per-profile summary fields
+  // (xp, streak, lastDate, completed, bholuItems, lessonsCompleted, etc.)
+  // with server values. This is the moment local cache becomes aligned
+  // with server reality.
+  //
+  // NOTE: /v1/leaderboard does NOT include full sr or lessonScores maps —
+  // those require a per-profile GET /v1/scores/:id, which we defer until
+  // the user actually picks their profile (see loadScoresForProfile).
+  async loadFromServer() {
+    try {
+      const res = await API.get('/v1/leaderboard');
+      if (!res || !Array.isArray(res.leaderboard)) throw new Error('bad response');
+
+      // Build leaderboard map (for login-screen cross-profile views)
+      const lbMap = {};
+      res.leaderboard.forEach(row => { lbMap[row.profileId] = row; });
+      this.leaderboard = lbMap;
+
+      // Overwrite per-profile cache with server values — server wins.
+      PROFILES.forEach(p => {
+        const row = lbMap[p.id];
+        if (!row) return;
+        // Preserve PIN (client-only) and SR/lessonScores (not in leaderboard
+        // payload; will be filled in by loadScoresForProfile when user logs in).
+        const pin          = this.data[p.id]?.pin          || null;
+        const sr           = this.data[p.id]?.sr           || {};
+        const lessonScores = this.data[p.id]?.lessonScores || {};
+        this.data[p.id] = {
+          xp:           row.xp          || 0,
+          streak:       row.streak      || 0,
+          lastDate:     row.lastActive  || '',
+          completed:    row.completed   || [],
+          activityLog:  [],  // not in leaderboard response; filled in by loadScoresForProfile
+          bholuItems:   row.bholuItems  || [],
+          level:        row.level       || getLevel(row.xp || 0),
+          nextLevel:    getNextLevel(row.xp || 0),
+          needsReinforcement: [],
+          sr, lessonScores, pin,
+        };
+      });
+
+      this._persist();
+      this.online = true;
+      return true;
+    } catch(e) {
+      console.warn('[loadFromServer] failed — using cached data:', e.message);
+      this.online = false;
+      return false;
+    }
+  },
+
+  // ── PER-PROFILE DETAILED LOAD ─────────────────────────────────────
+  // Called when a user PIN-enters. Gets full state (sr, lessonScores,
+  // activityLog) that isn't in the lightweight leaderboard payload.
+  async loadScoresForProfile(profileId) {
+    try {
+      const res = await API.get('/v1/scores/' + profileId);
+      if (res && res.scores) {
+        const pin = this.data[profileId]?.pin || null;
+        this.data[profileId] = { ...res.scores, pin };
+        this._persist();
+        this.online = true;
+      }
+    } catch(e) {
+      console.warn('[loadScoresForProfile] failed for', profileId, '—', e.message);
+      this.online = false;
+    }
+
+    // Also fetch AI lessons for this profile (non-blocking)
+    try {
+      this.aiLessons = await API.fetchGeneratedLessons(profileId);
+      this._injectAILessons();
+    } catch(e) {}
+  },
+
+  // ── RECORD EVENT ──────────────────────────────────────────────────
+  // Optimistic update → send to server → replace cache with server's
+  // authoritative response. If server unreachable, queue locally and
+  // retry later.
   async addEvent(profileId, type, data) {
     const clientTs = Date.now();
 
-    // Always cache immediately — offline safety net
+    // Capture pre-state for drift detection
+    const preXP = (this.data[profileId] && this.data[profileId].xp) || 0;
+
+    // Optimistic UI
     this._optimisticUpdate(profileId, type, data);
 
-    // Call server
+    // Server call
     const result = await API.post('/v1/events/record', { profileId, type, data, clientTs });
 
     if (result && result.scores && !result.error) {
-      // Server returned authoritative state — use it
-      const pin = this.data[profileId]?.pin;
+      // Server wins, always.
+      const pin = this.data[profileId]?.pin || null;
+      const serverXP = result.scores.xp || 0;
+      const optimisticXP = this.data[profileId].xp || 0;
+
+      // Drift check: if server returned materially less XP than our optimistic
+      // guess, something is off (event was rejected, or we guessed wrong about
+      // the XP a correct answer is worth). Log so it's visible in DevTools.
+      if (serverXP < optimisticXP - 5) {
+        console.warn('[addEvent] DRIFT: optimistic xp', optimisticXP,
+                     'vs server xp', serverXP, '— server wins.',
+                     { profileId, type, data });
+      }
+
       this.data[profileId] = { ...result.scores, pin };
       this._persist();
+      this.online = true;
       return result;
     } else {
-      // Server unavailable — queue for retry
+      // Server unavailable — queue for retry. The optimistic update stays
+      // in local cache so the UI shows the new XP. When _flushQueue
+      // eventually succeeds, server response replaces our optimistic guess.
+      console.warn('[addEvent] server unreachable — queued for retry', { profileId, type });
       this._queueEvent(profileId, type, data, clientTs);
+      this.online = false;
       return null;
     }
   },
@@ -1156,46 +1280,6 @@ const Store = {
     try { localStorage.setItem('guj_cache_v1', JSON.stringify(store)); } catch(e) {}
   },
 
-  // ── FETCH LEADERBOARD (display-only, all profiles) ───
-  // Populates Store.leaderboard (a SEPARATE read-only bucket).
-  // NEVER writes to Store.data — that would risk overwriting
-  // the signed-in user's pending optimistic updates.
-  async fetchLeaderboard() {
-    try {
-      const res = await API.get('/v1/leaderboard');
-      if (res && Array.isArray(res.leaderboard)) {
-        const map = {};
-        res.leaderboard.forEach(row => { map[row.profileId] = row; });
-        this.leaderboard = map;
-        return true;
-      }
-    } catch(e) { console.warn('fetchLeaderboard:', e.message); }
-    return false;
-  },
-
-  // ── SERVER SYNC ──────────────────────────────────────
-  // Called after PIN entry — pulls authoritative state from server
-  async syncFromServer(profileId) {
-    try {
-      // Flush any queued events first
-      await this._flushQueue(profileId);
-
-      // Pull authoritative state
-      const res = await API.get('/v1/scores/' + profileId);
-      if (res && res.scores) {
-        const pin = this.data[profileId]?.pin;
-        this.data[profileId] = { ...res.scores, pin };
-        this._persist();
-      }
-    } catch(e) { console.warn('syncFromServer:', e.message); }
-
-    // Fetch AI lessons
-    try {
-      this.aiLessons = await API.fetchGeneratedLessons(profileId);
-      this._injectAILessons();
-    } catch(e) {}
-  },
-
   // ── OFFLINE EVENT QUEUE ──────────────────────────────
   _queueEvent(profileId, type, data, ts) {
     const queue = this._loadQueue();
@@ -1268,80 +1352,27 @@ const Store = {
     }
   },
 
-  // ── MIGRATION ────────────────────────────────────────
-  // Convert any legacy data (event log, old state) to the server
-  // by submitting restore events. Runs once on first load with new code.
+  // ── MIGRATION (retired 2026-04-21) ──────────────────────
+  // The legacy migration used to read old localStorage keys (guj_v4/v5/v6,
+  // guj_events_v1) and push their contents to the server as restore events.
+  //
+  // It's been retired because:
+  //  (a) Mira's and Hugo's progress was recovered manually on 2026-04-21
+  //      via the admin API after we fixed a Cloud Function database
+  //      misconfiguration. Server now holds their correct XP/streak/lessons.
+  //  (b) The migration could DOUBLE-COUNT XP on devices where it hadn't
+  //      run yet — it would push legacy XP on top of the already-corrected
+  //      server state, inflating numbers.
+  //  (c) No remaining devices we care about still have pre-v3 data.
+  //
+  // We keep the flag-setting so any lingering migration logic in older
+  // code paths doesn't re-trigger; and we clean up the old storage keys
+  // so they stop taking space.
   _migrate() {
-    const migrated = localStorage.getItem('guj_migrated_v3');
-    if (migrated) return;
-
-    // Try to find the richest available data from old storage keys
-    const oldKeys = ['guj_events_v1', 'guj_cache_v1', 'guj_v6', 'guj_v5', 'guj_v4'];
-    const merged = {}; // profileId -> { xp, completed, activityLog }
-
-    // First try event log (most accurate)
+    if (localStorage.getItem('guj_migrated_v3')) return;
     try {
-      const events = JSON.parse(localStorage.getItem('guj_events_v1') || '{}');
-      PROFILES.forEach(p => {
-        if (!events[p.id]) return;
-        merged[p.id] = { xp: 0, completed: [], activityLog: [] };
-        events[p.id].forEach(evt => {
-          if (evt.type === 'lesson_complete' && evt.data?.lessonId && evt.data.lessonId !== '__restore__') {
-            merged[p.id].xp += (evt.data.xp || 0);
-            if (!merged[p.id].completed.includes(evt.data.lessonId)) merged[p.id].completed.push(evt.data.lessonId);
-          }
-          if (evt.type === 'streak_day' && evt.data?.date && !merged[p.id].activityLog.includes(evt.data.date)) {
-            merged[p.id].activityLog.push(evt.data.date);
-          }
-          if (evt.type === 'xp_earned') merged[p.id].xp += (evt.data?.amount || 0);
-        });
-      });
+      ['guj_events_v1', 'guj_v6', 'guj_v5', 'guj_v4'].forEach(k => localStorage.removeItem(k));
     } catch(e) {}
-
-    // Then layer in any state-based storage (for profiles not in event log)
-    ['guj_v6','guj_v5','guj_v4'].forEach(key => {
-      try {
-        const old = JSON.parse(localStorage.getItem(key) || '{}');
-        PROFILES.forEach(p => {
-          const d = old[p.id];
-          if (!d) return;
-          if (!merged[p.id]) merged[p.id] = { xp: 0, completed: [], activityLog: [] };
-          if ((d.xp || 0) > (merged[p.id].xp || 0)) merged[p.id].xp = d.xp;
-          (d.completed || []).forEach(id => { if (!merged[p.id].completed.includes(id)) merged[p.id].completed.push(id); });
-          (d.activityLog || []).forEach(dt => { if (!merged[p.id].activityLog.includes(dt)) merged[p.id].activityLog.push(dt); });
-        });
-      } catch(e) {}
-    });
-
-    // Push restore events to server for any profile with legacy data
-    // Uses a short delay to avoid hammering API on first load
-    let delay = 500;
-    PROFILES.forEach(p => {
-      const m = merged[p.id];
-      if (!m || (!m.xp && !m.completed.length)) return;
-      setTimeout(() => {
-        API.post('/v1/events/record', {
-          profileId: p.id,
-          type: 'lesson_complete',
-          data: {
-            lessonId: '__restore__',
-            xp: m.xp,
-            _restoredLessons: m.completed,
-            _migrated: true,
-            activityLog: m.activityLog,
-          },
-          clientTs: Date.now(),
-        }).then(res => {
-          if (res?.scores) {
-            const pin = this.data[p.id]?.pin;
-            this.data[p.id] = { ...res.scores, pin };
-            this._persist();
-          }
-        }).catch(() => {});
-      }, delay);
-      delay += 300;
-    });
-
     localStorage.setItem('guj_migrated_v3', '1');
   },
 };
@@ -1690,18 +1721,8 @@ function buildWotd() {
 function buildChallenge() {
   const week = Math.floor(Date.now() / (7*86400000));
   const lesson = LESSONS[week % LESSONS.length];
-  const lb = Store.leaderboard;  // server data (may be null if offline / first load)
-  // A profile counts as "completed" if EITHER server OR local cache says so.
-  // Union is strictly additive — consistent with the core principle that
-  // progress can never be lost. Server data keeps other devices in sync;
-  // local cache protects the signed-in user's fresh optimistic updates.
-  const isCompletedBy = p => {
-    const remote = lb ? lb[p.id] : null;
-    const remoteHas = remote && Array.isArray(remote.completed) && remote.completed.includes(lesson.id);
-    const localHas = (Store.profile(p.id).completed || []).includes(lesson.id);
-    return remoteHas || localHas;
-  };
-  const completers = PROFILES.filter(isCompletedBy);
+  // Store.profile(p.id).completed is server-truth (populated by loadFromServer)
+  const completers = PROFILES.filter(p => (Store.profile(p.id).completed || []).includes(lesson.id));
   const pct = Math.round((completers.length / PROFILES.length) * 100);
   document.getElementById('challengeSection').innerHTML = `
     <div class="challenge-card">
@@ -1730,18 +1751,29 @@ function buildChallenge() {
 function buildLeaderboard(containerId, activeId) {
   const today = new Date();
   const last10 = Array.from({length:10},(_,i) => { const d=new Date(today); d.setDate(d.getDate()-i); return d.toISOString().slice(0,10); });
-  const lb = Store.leaderboard;  // server data (may be null if offline / first load)
+  // Local cache IS server truth (set by Store.loadFromServer). For activity
+  // counts we derive from activityLog when we have it (only populated after
+  // the user PIN-enters — loadScoresForProfile fetches it). Before PIN entry,
+  // we use the summary fields from /v1/leaderboard that were stashed on
+  // Store.leaderboard.
+  const lb = Store.leaderboard;
   const rows = PROFILES.map(p => {
-    // Prefer fresh server data; fall back to local cache if server unreachable.
-    // For the signed-in user, local cache is also authoritative because
-    // optimistic updates may be ahead of the server.
-    const remote = lb ? lb[p.id] : null;
-    const local  = Store.profile(p.id);
-    if (remote && p.id !== activeId) {
-      return { p, d: local, days10: remote.days10 || 0, allDays: remote.allTimeDays || 0 };
+    const local = Store.profile(p.id);
+    const log   = local.activityLog || [];
+    let days10, allDays;
+    if (log.length) {
+      // We have the full activity log (user has PIN-entered at some point
+      // and loadScoresForProfile populated it)
+      days10  = last10.filter(x => log.includes(x)).length;
+      allDays = log.length;
+    } else if (lb && lb[p.id]) {
+      // Fall back to summary counts from /v1/leaderboard
+      days10  = lb[p.id].days10      || 0;
+      allDays = lb[p.id].allTimeDays || 0;
+    } else {
+      days10 = allDays = 0;
     }
-    const log = local.activityLog || [];
-    return { p, d: local, days10: last10.filter(x=>log.includes(x)).length, allDays: log.length };
+    return { p, d: local, days10, allDays };
   });
   const s10   = [...rows].sort((a,b) => b.days10 - a.days10);
   const sAll  = [...rows].sort((a,b) => b.allDays - a.allDays);
@@ -1763,14 +1795,10 @@ function buildLeaderboard(containerId, activeId) {
 }
 
 function buildBholuLogin() {
-  const lb = Store.leaderboard;
-  // Union of ALL profiles' completed lessons (server OR local) for the
-  // family-wide wardrobe. Additive-only — never drops a completion,
-  // so Bholu items can never disappear.
+  // Local cache is server-truth after loadFromServer. The union of every
+  // profile's completed lessons drives the family-wide Bholu wardrobe.
   const allCompleted = new Set();
   PROFILES.forEach(p => {
-    const remote = lb ? lb[p.id] : null;
-    if (remote && Array.isArray(remote.completed)) remote.completed.forEach(id => allCompleted.add(id));
     (Store.profile(p.id).completed || []).forEach(id => allCompleted.add(id));
   });
   const items = getBholuItems([...allCompleted]);
@@ -1798,20 +1826,16 @@ function buildLogin() {
 
   const grid = document.getElementById('profileGrid');
   grid.innerHTML = '';
-  const lb = Store.leaderboard;  // server data (may be null)
   PROFILES.forEach(p => {
-    const local = Store.profile(p.id);
-    const remote = lb ? lb[p.id] : null;
-    // Prefer server for XP / streak / lastDate — that's the whole point of this fix.
-    // `completed[]` and SR stay local (server doesn't return them on leaderboard endpoint).
-    const xp       = remote ? (remote.xp || 0)       : (local.xp || 0);
-    const streak   = remote ? (remote.streak || 0)   : (local.streak || 0);
-    const lastDate = remote ? (remote.lastActive || '') : (local.lastDate || '');
+    const d = Store.profile(p.id);  // server-truth after loadFromServer
+    const xp       = d.xp       || 0;
+    const streak   = d.streak   || 0;
+    const lastDate = d.lastDate || '';
     const due = SR.getDueCount(p.id);
     const todayS = todayISO();
     const yestS = new Date(Date.now()-86400000).toISOString().slice(0,10);
     const atRisk = streak > 0 && lastDate !== todayS && lastDate !== yestS;
-    const items = getBholuItems(local.completed || []);
+    const items = getBholuItems(d.completed || []);
 
     const card = document.createElement('div');
     card.className = 'profile-card';
@@ -1887,9 +1911,9 @@ function _handlePin() {
     }
   } else {
     if (_pinBuf === d.pin) {
-      // Enter home immediately (no blocking), sync in background
+      // Enter home immediately (no blocking), fetch full scores in background
       enterHome(_pinProfileId);
-      Store.syncFromServer(_pinProfileId).then(() => {
+      Store.loadScoresForProfile(_pinProfileId).then(() => {
         // Refresh home stats silently if still on home screen
         if (document.getElementById('homeScreen').classList.contains('active')) {
           refreshHomeStats();
@@ -2043,10 +2067,10 @@ function doLogout() {
   _currentProfileId = null;
   buildLogin();
   showScreen('loginScreen');
-  // Refresh leaderboard from server — the user just finished activity, others may
-  // want to see their updated totals. Fire and forget; buildLogin() already
-  // rendered with local cache so there's no flicker if this fails.
-  Store.fetchLeaderboard().then(ok => {
+  // Refresh from server — the user just finished activity, their own server
+  // state and the leaderboard need to reflect it. loadFromServer overwrites
+  // local cache with server truth. Fire and forget.
+  Store.loadFromServer().then(ok => {
     if (ok && document.getElementById('loginScreen').classList.contains('active')) {
       buildLogin();
     }
@@ -2432,23 +2456,80 @@ function _finishLesson() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   INIT
+   INIT — server-first load
+
+   Goal: the numbers the user sees on the login screen should be the
+   server's truth, not a possibly-stale local cache. To avoid a blank
+   screen during the server fetch, we do two things:
+
+   1. Synchronously populate Store.data from localStorage and render
+      a "loading" state. This is instant — user sees the app shell and
+      a spinner within milliseconds.
+
+   2. Asynchronously fetch /v1/leaderboard. When it returns, we OVERWRITE
+      local cache with server values and re-render. Any mismatch between
+      cache and server is resolved in the server's favor, visibly.
+
+   3. If the server fetch fails (offline), we show an "offline" banner
+      and continue using cached values. Local edits queue for later sync.
 ═══════════════════════════════════════════════════════ */
-// Load from localStorage and show UI immediately — zero waiting
-Store.load();
+
+// Step 1: synchronous init — instant UI
+Store.loadSync();
 Confetti.init();
 buildLogin();
+_showLoadingBanner();
 
-// Background: fetch fresh leaderboard data from server so profile cards
-// show accurate cross-device progress. This ONLY populates Store.leaderboard
-// (a read-only display bucket). It does NOT touch Store.data, so it cannot
-// interfere with the current user's pending writes or optimistic updates.
+// Step 2: async server load — authoritative state
 if (CFG.API_BASE) {
-  Store.fetchLeaderboard().then(ok => {
-    if (ok && document.getElementById('loginScreen').classList.contains('active')) {
-      buildLogin();  // re-render with fresh data
+  Store.loadFromServer().then(ok => {
+    _hideLoadingBanner();
+    if (!ok) _showOfflineBanner();
+    // Re-render login with server-truth values (even if not currently on
+    // login screen — no-op if hidden, rendered if visible)
+    if (document.getElementById('loginScreen').classList.contains('active')) {
+      buildLogin();
     }
   });
+} else {
+  _hideLoadingBanner();
+}
+
+// ── Loading / offline banner helpers ──────────────────
+// Minimal, inline — added here rather than as CSS/HTML elements so the
+// rewrite is self-contained and the rest of the file is untouched.
+function _showLoadingBanner() {
+  if (document.getElementById('_statusBanner')) return;
+  const b = document.createElement('div');
+  b.id = '_statusBanner';
+  b.textContent = '⏳ Loading latest progress…';
+  b.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);'
+    + 'background:#fffbf0;color:#7c6200;border:1px solid #fde68a;border-radius:99px;'
+    + 'padding:6px 18px;font-size:12px;font-weight:600;z-index:9999;'
+    + 'box-shadow:0 2px 8px rgba(0,0,0,.08)';
+  document.body.appendChild(b);
+}
+function _hideLoadingBanner() {
+  const b = document.getElementById('_statusBanner');
+  if (b) b.remove();
+}
+function _showOfflineBanner() {
+  if (document.getElementById('_statusBanner')) return;
+  const b = document.createElement('div');
+  b.id = '_statusBanner';
+  b.textContent = '📡 Offline — showing last saved progress';
+  b.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);'
+    + 'background:#FFF5F0;color:#993C1D;border:1px solid #F09595;border-radius:99px;'
+    + 'padding:6px 18px;font-size:12px;font-weight:600;z-index:9999;'
+    + 'box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer';
+  b.onclick = () => {
+    b.textContent = '⏳ Reconnecting…';
+    Store.loadFromServer().then(ok => {
+      if (ok) { b.remove(); if (document.getElementById('loginScreen').classList.contains('active')) buildLogin(); }
+      else { _showOfflineBanner(); }
+    });
+  };
+  document.body.appendChild(b);
 }
 
 </script>
