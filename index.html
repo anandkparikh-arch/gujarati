@@ -972,16 +972,6 @@ const API = {
     return res && res.scores ? res.scores : null;
   },
 
-  // Log a user event (fire and forget)
-  logEvent(profileId, type, payload = {}) {
-    this.post('/v1/events', { profileId, type, payload, appVersion: '3.0' }).catch(() => {});
-  },
-
-  // Record event through scoring microservice (primary write path)
-  async recordEvent(profileId, type, data) {
-    return this.post('/v1/events/record', { profileId, type, data, clientTs: Date.now() });
-  },
-
   // AI lesson generation
   async generateLesson(profileId) {
     return this.post('/v1/lessons/generate/' + profileId, {});
@@ -2417,12 +2407,6 @@ function _finishLesson() {
 
   // Maybe generate next AI lesson
   Store.maybeGenerateLesson(_currentProfileId);
-
-  // Log event to API
-  API.logEvent(_currentProfileId, _lesson ? 'lesson_complete' : 'review_complete', {
-    lessonId: _lesson ? _lesson.id : 'review',
-    xpEarned: _sessXP, correct: _sessCorrect, total: _questions.length
-  });
 
   // Build complete screen
   const perf = _sessCorrect / Math.max(1, _questions.length);
